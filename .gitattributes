@@ -1,0 +1,47 @@
+# ==============================================================================
+# Mikey Note — Git Attributes Configuration
+# ==============================================================================
+
+# Set default behavior to automatically handle line endings across operating systems
+* text=auto
+
+# ------------------------------------------------------------------------------
+# Source Code & Text Assets (Normalized to LF line endings)
+# ------------------------------------------------------------------------------
+*.java text diff=java eol=lf
+*.py text diff=python eol=lf
+*.sh text eol=lf
+Makefile text eol=lf
+*.gradle text eol=lf
+*.xml text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.properties text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# ------------------------------------------------------------------------------
+# Binary Files (Prevent line ending conversions & merge conflicts)
+# ------------------------------------------------------------------------------
+*.jar binary
+*.war binary
+*.ear binary
+*.class binary
+*.db binary
+*.sqlite binary
+*.sqlite3 binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text
+*.pdf binary
+*.zip binary
+*.tar.gz binary

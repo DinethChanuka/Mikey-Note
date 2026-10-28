@@ -1,0 +1,55 @@
+# ==============================================================================
+# Mikey Note — Git Ignore Configuration
+# ==============================================================================
+
+# 1. SQLite Databases & Transaction Journals
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# 2. Java Compiled Binaries & Packages
+*.class
+/bin/
+/out/
+/target/
+*.jar
+*.war
+*.ear
+
+# 3. Dedicated Temporary Directories (preserve directory structure)
+/temp/classes/*
+!/temp/classes/.gitkeep
+/temp/files/*
+!/temp/files/.gitkeep
+
+# 4. Python Bytecode & Runtime Caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# 5. macOS and OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 6. IDE & Editor Files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+*.sublime-project
+*.sublime-workspace
+
+# 7. System & Crash Logs
+*.log
+hs_err_pid*.log
+replay_pid*.log

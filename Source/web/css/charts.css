@@ -1,0 +1,40 @@
+.chart {
+  margin: 16px auto;
+  text-align: center;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.chart:hover {
+  border-color: var(--bd-dark);
+  background: rgba(241, 245, 249, 0.4);
+  cursor: pointer;
+}
+
+.chart svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.chart svg text {
+  font-family: Arial, sans-serif;
+  fill: #334155;
+}
+
+.prev {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-top: 10px;
+  overflow: auto;
+  text-align: center;
+  background: #f8fafc;
+  padding: 10px;
+  min-height: 120px;
+}
+
+.prev svg text {
+  font-family: Arial, sans-serif;
+  fill: #222;
+}

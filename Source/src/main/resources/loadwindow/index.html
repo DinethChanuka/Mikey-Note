@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mikey Note — Modern Document Studio & Notes</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png">
+  <link rel="icon" type="image/png" href="assets/mikey_note_logo.png">
+  <link rel="shortcut icon" href="favicon.ico">
+  <link rel="apple-touch-icon" href="assets/mikey_note_logo.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- 1. Adobe Creative Boot Splash Screen -->
+<div id="splash">
+  <div class="splash-card">
+    <img class="logo-img" src="assets/mikey_note_logo.png" alt="Mikey Note Logo">
+    <div class="studio-badge">MIKEY NOTE CREATIVE STUDIO • v2.0</div>
+    <h1>Mikey Note</h1>
+    <div class="tagline">Modern Modular Java 24 &amp; SQLite Document Studio</div>
+    <div id="smsg">Connecting to Java SQLite Server…</div>
+    <div class="pb"><i id="sbar"></i></div>
+  </div>
+</div>
+
+<!-- 2. Home / Bookshelf Dashboard -->
+<div id="home" class="hide">
+  <!-- Sticky Glassmorphic Topbar -->
+  <header class="topbar">
+    <div class="brand-wrapper">
+      <img src="assets/mikey_note_logo.png" alt="Mikey Note Logo" class="brand-logo">
+      <span class="brand-title">Mikey Note <span class="brand-badge">Studio</span></span>
+    </div>
+
+    <div class="topbar-center">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="global-search" placeholder="Search notebooks and lessons... (⌘K)">
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <button id="btn-db-info" class="badge-btn" title="View SQLite Database Telemetry">
+        <span class="pulse-dot"></span>
+        <span>SQLite Active</span>
+      </button>
+      <button id="btn-theme-toggle" title="Toggle Dark/Light Mode">🌙</button>
+      <button id="btn-export-all" title="Backup all books as JSON">💾 Export All</button>
+      <button id="btn-import-all" title="Import JSON backup or legacy notes">📥 Import</button>
+      <button id="btn-new-book" class="btn-primary">＋ New Notebook</button>
+    </div>
+  </header>
+
+  <!-- Shelf Content -->
+  <div class="shelf-container">
+    <!-- Live Analytics HUD -->
+    <div class="shelf-hud">
+      <div class="hud-card">
+        <div class="hud-icon">📚</div>
+        <div class="hud-info">
+          <div class="hud-title">Notebooks</div>
+          <div class="hud-val" id="hud-books">0</div>
+        </div>
+      </div>
+      <div class="hud-card">
+        <div class="hud-icon">📝</div>
+        <div class="hud-info">
+          <div class="hud-title">Lessons</div>
+          <div class="hud-val" id="hud-lessons">0</div>
+        </div>
+      </div>
+      <div class="hud-card">
+        <div class="hud-icon">✍️</div>
+        <div class="hud-info">
+          <div class="hud-title">Words Authored</div>
+          <div class="hud-val" id="hud-words">0</div>
+        </div>
+      </div>
+      <div class="hud-card">
+        <div class="hud-icon">🗄️</div>
+        <div class="hud-info">
+          <div class="hud-title">SQLite Database</div>
+          <div class="hud-val" id="hud-db">WAL Active</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Shelf Section -->
+    <div class="shelf-section-header">
+      <h3>Your Notebooks</h3>
+    </div>
+
+    <!-- 3D Perspective Card Grid -->
+    <div id="shelf"></div>
+  </div>
+</div>
+
+<!-- 3. Document Studio View -->
+<div id="bookview" class="hide">
+  <!-- Studio Header -->
+  <header class="studio-topbar">
+    <div class="studio-topbar-left">
+      <button id="back" class="btn-back">← All Notebooks</button>
+      <div class="book-title-header">
+        <span id="book-color-dot" class="book-color-indicator"></span>
+        <span id="btitle"></span>
+      </div>
+    </div>
+
+    <div class="studio-topbar-right" style="display:flex;align-items:center;gap:10px;">
+      <span id="sync-indicator" class="sync-tag saved">🟢 Saved to SQLite</span>
+      <button id="dl-md" title="Download as Markdown">⬇ Markdown</button>
+      <button id="dl" title="Download as standalone HTML">⬇ HTML</button>
+      <button id="pr" title="Print document or save as PDF">🖨 Print / PDF</button>
+    </div>
+  </header>
+
+  <!-- MS Word-Style Modern Ribbon Toolbar -->
+  <div class="ribbon">
+    <div class="tabs">
+      <button class="tab on" data-t="home">Home</button>
+      <button class="tab" data-t="insert">Insert</button>
+      <button class="tab" data-t="table">Table Studio</button>
+      <button class="tab hide" id="tab-picture" data-t="picture">Picture Format</button>
+    </div>
+
+    <!-- Home Tab Panel -->
+    <div class="panel" id="p-home">
+      <div class="g">
+        <button data-c="undo" title="Undo (Ctrl+Z)">↶</button>
+        <button data-c="redo" title="Redo (Ctrl+Y)">↷</button>
+      </div>
+      <div class="g">
+        <select id="ff" title="Font Family">
+          <option value="'Plus Jakarta Sans', sans-serif">Plus Jakarta Sans</option>
+          <option value="Calibri, sans-serif">Calibri</option>
+          <option value="Arial, sans-serif">Arial</option>
+          <option value="Georgia, serif">Georgia</option>
+          <option value="'Times New Roman', serif">Times New Roman</option>
+          <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
+          <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+        </select>
+        <select id="fz" title="Font Size">
+          <option>10</option>
+          <option>11</option>
+          <option>12</option>
+          <option>14</option>
+          <option selected>15</option>
+          <option>16</option>
+          <option>18</option>
+          <option>20</option>
+          <option>24</option>
+          <option>32</option>
+          <option>48</option>
+        </select>
+        <select id="st" title="Paragraph Style">
+          <option value="p">Normal Text</option>
+          <option value="h1">Heading 1</option>
+          <option value="h2">Heading 2</option>
+          <option value="h3">Heading 3</option>
+        </select>
+      </div>
+      <div class="g">
+        <button data-c="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+        <button data-c="italic" title="Italic (Ctrl+I)"><i>I</i></button>
+        <button data-c="underline" title="Underline (Ctrl+U)"><u>U</u></button>
+        <button data-c="strikeThrough" title="Strikethrough"><s>S</s></button>
+        <button data-c="subscript" title="Subscript">x₂</button>
+        <button data-c="superscript" title="Superscript">x²</button>
+      </div>
+      <div class="g">
+        <label class="clr" title="Text Color">A<input type="color" id="fc" value="#c00000"></label>
+        <label class="clr hl" title="Highlight Color">🖍<input type="color" id="hc" value="#fff200"></label>
+      </div>
+      <div class="g">
+        <button data-c="justifyLeft" title="Align Left">⬅</button>
+        <button data-c="justifyCenter" title="Align Center">↔</button>
+        <button data-c="justifyRight" title="Align Right">➡</button>
+        <button data-c="justifyFull" title="Justify">☰</button>
+      </div>
+      <div class="g">
+        <button data-c="insertUnorderedList" title="Bullet List">• List</button>
+        <button data-c="insertOrderedList" title="Numbered List">1. List</button>
+        <button data-c="outdent" title="Decrease Indent">⇤</button>
+        <button data-c="indent" title="Increase Indent">⇥</button>
+        <select id="ls" title="Line Spacing">
+          <option value="1">1.0</option>
+          <option value="1.15">1.15</option>
+          <option value="1.5">1.5</option>
+          <option value="1.65" selected>1.65</option>
+          <option value="2">2.0</option>
+        </select>
+      </div>
+      <div class="g">
+        <button data-c="removeFormat" title="Clear Formatting">🧹 Clear</button>
+      </div>
+    </div>
+
+    <!-- Insert Tab Panel -->
+    <div class="panel hide" id="p-insert">
+      <div class="g">
+        <button id="i-table" title="Insert Table">▦ Table</button>
+        <button id="i-chart" title="Insert Vector Chart (Bar, Pie, Line)">📊 Chart</button>
+        <button id="i-img" title="Insert Image">🖼 Image</button>
+        <button id="i-link" title="Insert Hyperlink">🔗 Link</button>
+      </div>
+      <div class="g">
+        <button id="i-q" title="Quote Callout">❝ Quote</button>
+        <button id="i-code" title="Code Snippet">&lt;/&gt; Code</button>
+        <button id="i-hr" title="Horizontal Line">― Line</button>
+        <button id="i-pb" title="A4 Page Break">⤓ Page Break</button>
+        <button id="i-date" title="Today's Date">📅 Date</button>
+        <button id="i-chk" title="Interactive Checkbox">☐ Checkbox</button>
+      </div>
+      <div class="g">
+        <select id="sym" title="Insert Symbol">
+          <option value="">Ω Symbol</option>
+          <option>©</option><option>®</option><option>™</option><option>°</option>
+          <option>±</option><option>×</option><option>÷</option><option>≠</option>
+          <option>≤</option><option>≥</option><option>∞</option><option>√</option>
+          <option>π</option><option>→</option><option>★</option><option>✓</option>
+          <option>€</option><option>£</option>
+        </select>
+      </div>
+      <input type="file" id="file" accept="image/*" class="hide">
+      <input type="file" id="import-file-input" accept=".json" class="hide">
+    </div>
+
+    <!-- Table Studio Tab Panel -->
+    <div class="panel hide" id="p-table">
+      <div class="g"><span style="color:var(--text-muted);font-size:12px;">Table Actions:</span></div>
+      <div class="g">
+        <button data-tb="rowA" title="Insert Row Below">＋ Row Below</button>
+        <button data-tb="rowB" title="Insert Row Above">＋ Row Above</button>
+        <button data-tb="colA" title="Insert Column Right">＋ Col Right</button>
+        <button data-tb="colB" title="Insert Column Left">＋ Col Left</button>
+      </div>
+      <div class="g">
+        <button data-tb="rowD" title="Delete Row">− Row</button>
+        <button data-tb="colD" title="Delete Column">− Col</button>
+        <button data-tb="tblD" title="Delete Table">🗑 Delete Table</button>
+      </div>
+      <div class="g">
+        <label class="clr" title="Cell Background Color">🎨<input type="color" id="cc" value="#dbeafe"></label>
+        <button data-tb="head" title="Toggle Header Row">Header Row</button>
+      </div>
+    </div>
+
+    <!-- Picture Format Tab Panel -->
+    <div class="panel hide" id="p-picture">
+      <div class="g">
+        <span class="ribbon-grp-lbl">SIZE</span>
+        <button class="btn-filter" data-img-size="240" title="Small (240px)">240px</button>
+        <button class="btn-filter" data-img-size="420" title="Medium (420px)">420px</button>
+        <button class="btn-filter" data-img-size="580" title="Standard (580px)">580px</button>
+        <button class="btn-filter" data-img-size="720" title="Full Width (720px)">720px</button>
+      </div>
+      <div class="g">
+        <span class="ribbon-grp-lbl">ALIGN</span>
+        <button class="btn-filter" data-img-align="left" title="Align Left">⬅ Left</button>
+        <button class="btn-filter" data-img-align="center" title="Align Center">↔ Center</button>
+        <button class="btn-filter" data-img-align="right" title="Align Right">➡ Right</button>
+      </div>
+      <div class="g filter-gallery">
+        <span class="ribbon-grp-lbl">FILTERS & EFFECTS</span>
+        <button class="btn-filter" data-img-filter="original" title="Reset image filters">Original</button>
+        <button class="btn-filter" data-img-filter="grayscale" title="Black & white filter">Grayscale</button>
+        <button class="btn-filter" data-img-filter="sepia" title="Warm vintage sepia">Sepia</button>
+        <button class="btn-filter" data-img-filter="vivid" title="Rich vivid saturation">Vivid</button>
+        <button class="btn-filter" data-img-filter="contrast" title="High dynamic contrast">Contrast</button>
+        <button class="btn-filter" data-img-filter="invert" title="Invert colors">Invert</button>
+        <button class="btn-filter" data-img-filter="rounded" title="24px rounded corners">Rounded</button>
+        <button class="btn-filter" data-img-filter="oval" title="Circular / oval shape">Oval</button>
+        <button class="btn-filter" data-img-filter="shadow" title="Floating drop shadow">Shadow</button>
+        <button class="btn-filter" data-img-filter="border" title="Accent frame border">Border</button>
+        <button class="btn-filter" data-img-filter="vignette" title="Vignette focus effect">Vignette</button>
+        <button class="btn-filter" data-img-filter="blur" title="Soft background blur">Blur</button>
+      </div>
+      <div class="g">
+        <span class="ribbon-grp-lbl">WRAP</span>
+        <button class="btn-filter" data-img-wrap="inline" title="In-line with text">Inline</button>
+        <button class="btn-filter" data-img-wrap="float-left" title="Float Left">Float ⮜</button>
+        <button class="btn-filter" data-img-wrap="float-right" title="Float Right">Float ⮞</button>
+      </div>
+      <div class="g">
+        <button id="btn-img-replace" class="btn-filter" title="Replace image source">🔄 Replace...</button>
+        <button id="btn-img-delete" class="btn-filter btn-danger" title="Delete selected image">🗑 Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Work Area: Lesson Sidebar & Centered A4 Canvas -->
+  <div class="work">
+    <aside id="lessons">
+      <div class="lessons-header">
+        <span>Lessons</span>
+        <button id="addL" class="btn-primary" style="padding:3px 10px;font-size:11px;">＋ Lesson</button>
+      </div>
+      <div class="lessons-list" id="lessons-list"></div>
+    </aside>
+
+    <div class="canvas">
+      <div id="empty" class="empty-state-card">
+        <div class="empty-state-icon">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="12" y1="18" x2="12" y2="12"></line>
+            <line x1="9" y1="15" x2="15" y2="15"></line>
+          </svg>
+        </div>
+        <h3>No Lessons in this Notebook</h3>
+        <p>This notebook currently has no lessons. Create a new lesson to start drafting your notes and document content.</p>
+        <button id="btn-create-first-lesson" class="btn-primary">＋ Create Lesson</button>
+      </div>
+      <div id="sheet" contenteditable="true" spellcheck="true" class="hide"></div>
+    </div>
+  </div>
+
+  <!-- Studio Status Bar -->
+  <footer id="stat"></footer>
+</div>
+
+<!-- Context Menu Element -->
+<div id="web-context-menu" class="web-context-menu hide"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

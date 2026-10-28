@@ -1,0 +1,86 @@
+#sheet {
+  background: #fff;
+  width: 794px;
+  max-width: 100%;
+  min-height: 1050px;
+  padding: 72px 76px;
+  box-shadow: var(--page-shadow);
+  outline: 0;
+  font: 14px/1.5 var(--font-editor);
+  flex-shrink: 0;
+  overflow-wrap: anywhere;
+  border-radius: 2px;
+  transition: zoom 0.15s ease;
+}
+
+#sheet h1 { font-size: 2.1em; margin-top: 0; margin-bottom: 0.6em; }
+#sheet h2 { font-size: 1.6em; margin-top: 1em; margin-bottom: 0.5em; }
+#sheet h3 { font-size: 1.25em; margin-top: 0.8em; margin-bottom: 0.4em; }
+
+#sheet table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+}
+
+#sheet td, #sheet th {
+  border: 1px solid #94a3b8;
+  padding: 8px 10px;
+  min-width: 44px;
+  vertical-align: top;
+}
+
+#sheet th {
+  background: #dbeafe;
+  font-weight: 600;
+}
+
+#sheet blockquote {
+  border-left: 4px solid var(--ac);
+  margin: 12px 0;
+  padding: 6px 16px;
+  color: #475569;
+  background: #f8fafc;
+  border-radius: 0 4px 4px 0;
+}
+
+#sheet pre {
+  background: #f1f5f9;
+  padding: 12px 14px;
+  border-radius: 6px;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  border: 1px solid #e2e8f0;
+}
+
+#sheet img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+.pbk {
+  border-top: 2px dashed #94a3b8;
+  margin: 28px -20px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 11px;
+  user-select: none;
+  letter-spacing: 1px;
+}
+
+.empty {
+  color: #64748b;
+  margin-top: 80px;
+  text-align: center;
+  font-size: 1.1em;
+}
+
+@media print {
+  body { background: #fff; }
+  .top, .ribbon, #lessons, footer { display: none !important; }
+  .work, .canvas { display: block; padding: 0; overflow: visible; background: #fff; }
+  #sheet { box-shadow: none; width: 100%; padding: 0; zoom: 1 !important; }
+  .pbk { page-break-after: always; border: 0; color: transparent; margin: 0; }
+}

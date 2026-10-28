@@ -1,0 +1,34 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = 'com.wordbook'
+version = '2.0.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.xerial:sqlite-jdbc:3.49.1.0'
+}
+
+application {
+    mainClass = 'com.wordbook.WordBookApplication'
+}
+
+jar {
+    manifest {
+        attributes(
+            'Main-Class': 'com.wordbook.WordBookApplication',
+            'Class-Path': 'lib/sqlite-jdbc-3.49.1.0.jar'
+        )
+    }
+}

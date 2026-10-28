@@ -1,0 +1,19 @@
+:root {
+  --ac: #2b579a;
+  --ac-hover: #1e3f70;
+  --ac-light: #e6eefb;
+  --bd: #d6d6d6;
+  --bd-dark: #b9cdee;
+  --bg: #e9ecef;
+  --text-main: #222222;
+  --text-muted: #64748b;
+  --card-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+  --page-shadow: 0 2px 14px rgba(0, 0, 0, 0.15);
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-editor: Calibri, Arial, sans-serif;
+  box-sizing: border-box;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}

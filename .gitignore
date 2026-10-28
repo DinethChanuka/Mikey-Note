@@ -1,0 +1,103 @@
+# ==============================================================================
+# Mikey Note — Root Git Ignore Configuration
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Operating System Files
+# ------------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ------------------------------------------------------------------------------
+# 2. SQLite Databases & Transaction Journals
+# ------------------------------------------------------------------------------
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.sqlite
+*.sqlite3
+*.db3
+wordbook.db
+Source/wordbook.db
+
+# ------------------------------------------------------------------------------
+# 3. Java Compiled Binaries, Archives & Build Outputs
+# ------------------------------------------------------------------------------
+*.class
+bin/
+out/
+target/
+build/
+.gradle/
+*.jar
+*.war
+*.ear
+wordbook.jar
+Source/wordbook.jar
+Source/bin/
+Source/out/
+Source/target/
+Source/build/
+
+# Unpacked JavaFX SDK / external runtime SDK archives
+Source/lib/javafx-sdk-*/
+
+# ------------------------------------------------------------------------------
+# 4. Dedicated Temporary Directories & Test Cache (preserve folder with .gitkeep)
+# ------------------------------------------------------------------------------
+temp/classes/*
+!temp/classes/.gitkeep
+temp/files/*
+!temp/files/.gitkeep
+Source/temp/classes/*
+!Source/temp/classes/.gitkeep
+Source/temp/files/*
+!Source/temp/files/.gitkeep
+Source/temp/files/cache/
+Source/temp/files/rendered_samples/
+
+# ------------------------------------------------------------------------------
+# 5. Python Bytecode, Virtual Environments & Runtime Caches
+# ------------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+ENV/
+env/
+
+# ------------------------------------------------------------------------------
+# 6. IDEs & Editor Configuration
+# ------------------------------------------------------------------------------
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# ------------------------------------------------------------------------------
+# 7. Logs, Dumps & Crash Reports
+# ------------------------------------------------------------------------------
+*.log
+hs_err_pid*.log
+replay_pid*.log

@@ -1,7 +1,7 @@
 # Mikey Note — Modern Modular Java & SQLite Document Studio
 
 <div align="center">
-  <img src="assets/mikey_note_logo.png" alt="Mikey Note Logo" width="160" style="border-radius: 24px; box-shadow: 0 12px 36px rgba(0,0,0,0.3); margin: 16px 0;" />
+  <img src="Source/assets/mikey_note_logo.png" alt="Mikey Note Logo" width="160" style="border-radius: 24px; box-shadow: 0 12px 36px rgba(0,0,0,0.3); margin: 16px 0;" />
   <p><b>A modern document studio and notebook environment re-engineered with an Advanced Modular Architecture in Java 24, SQLite ACID persistence, and native Java Swing/AWT desktop studio with Adobe-style splash.</b></p>
 </div>
 

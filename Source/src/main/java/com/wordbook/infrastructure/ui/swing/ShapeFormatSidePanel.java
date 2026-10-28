@@ -1,11 +1,13 @@
 package com.wordbook.infrastructure.ui.swing;
 
+import com.wordbook.core.application.service.ChartEngineService;
+import com.wordbook.core.application.service.ChartEngineService.ChartTheme;
+import com.wordbook.core.domain.model.ChartDefinition.ChartType;
+
 import javax.swing.*;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.AttributeSet;
@@ -19,43 +21,81 @@ import java.awt.event.MouseEvent;
 import java.util.Map;
 
 /**
- * Microsoft Word-style Shape & Picture Format Sidebar Panel.
- * Appears docked on the right side when an object (card, shape, image, chart)
- * is selected or when the user opens the "Card & Shape Format" menu/ribbon tab.
+ * Intelligent Microsoft Word-style Format Sidebar Panel.
+ * Dynamically adapts to show relevant properties for the currently selected object:
  *
- * Provides real-time formatting controls:
- * - Quick Color Themes & Palettes (Corporate Blue, Emerald, Violet, Amber, Crimson, Slate, Minimal)
- * - Fill & Background (Color swatch, Transparency slider)
- * - Line & Border (Style, Color swatch, Width spinner, Corner Radius slider)
- * - Shadow & Elevation (Soft, Elevation, Glow, Depth)
- * - Size & Dimensions (Width, Height, Lock aspect ratio)
- * - Alignment (Left, Center, Right)
- * - Live Text & Metric Editing (Title, Highlight Metric Value, Subtitle)
- * - Quick Actions (Duplicate, Edit in Modal Dialog, Delete Object)
+ * 1. PICTURE: Image filters (B&W, Sepia, Vivid, Invert), aspect scaling,
+ *    fit page width, photo borders, corner rounding, drop shadows, and captions.
+ * 2. CHART: Chart type switcher (Bar, Line, Area, Pie, Donut, KPI),
+ *    color themes (Corporate, Emerald, Violet, etc.), data labels/legend toggles,
+ *    and direct "Edit Chart Data..." dialog access.
+ * 3. METRIC_CARD: KPI title, large metric value, subtitle, color themes,
+ *    fill color, border outline, corner radius, and elevation.
+ * 4. SHAPE / CALLOUT: Callout styles (Info, Tip, Warning, Danger, Quote),
+ *    fill/accent color, border stroke, corner radius, title & content text.
+ * 5. TABLE: Table themes (Clean Blue, Zebra, Minimalist), row/column insertion
+ *    and deletion tools, cell coloring, and grid borders.
+ * 6. VIDEO: Dimensions, alignment, playback launcher, and removal.
  */
 public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeChangeListener {
+
+    public enum ObjectType {
+        PICTURE("Format Picture", "Image", VectorIcons.Type.IMAGE, new Color(37, 99, 235)),
+        CHART("Format Chart", "Chart / Graph", VectorIcons.Type.CHART, new Color(16, 185, 129)),
+        METRIC_CARD("Format Metric Card", "KPI Card", VectorIcons.Type.KPI_CARD, new Color(139, 92, 246)),
+        SHAPE("Format Shape", "Shape / Callout", VectorIcons.Type.SHAPE, new Color(14, 165, 233)),
+        TABLE("Format Table", "Table", VectorIcons.Type.TABLE, new Color(245, 158, 11)),
+        VIDEO("Format Video", "Video Media", VectorIcons.Type.VIDEO, new Color(239, 68, 68));
+
+        public final String title;
+        public final String badge;
+        public final VectorIcons.Type iconType;
+        public final Color accent;
+
+        ObjectType(String title, String badge, VectorIcons.Type iconType, Color accent) {
+            this.title = title;
+            this.badge = badge;
+            this.iconType = iconType;
+            this.accent = accent;
+        }
+    }
 
     private final DocumentCanvasPanel canvasPanel;
     private Runnable closeCallback;
 
     private Element currentElement;
-    private boolean isImageElement = false;
+    private ObjectType currentObjectType = ObjectType.METRIC_CARD;
     private boolean updatingUi = false;
 
     // Header controls
+    private final JLabel headerIconLabel;
     private final JLabel headerTitleLabel;
     private final JLabel headerBadgeLabel;
     private final JButton closeBtn;
     private final JButton widthToggleBtn;
 
-    // Content container & empty state
-    private final JPanel contentCardsPanel;
+    // Body Deck & Containers
+    private final JPanel mainDeck;
     private final JPanel emptyStatePanel;
+    private final JPanel contentCardsPanel;
 
-    // Themes
+    // Dynamic Sections (Shown / Hidden based on ObjectType)
+    private final JPanel pictureFilterSection;
+    private final JPanel chartTypeSection;
+    private final JPanel chartThemeSection;
+    private final JPanel chartOptionsSection;
+    private final JPanel cardThemesSection;
+    private final JPanel fillSection;
+    private final JPanel borderSection;
+    private final JPanel shadowSection;
+    private final JPanel sizeSection;
+    private final JPanel cardTextSection;
+    private final JPanel shapeTextSection;
+    private final JPanel tableToolsSection;
+    private final JPanel actionsSection;
+
+    // Current State
     private String selectedThemeKey = "BLUE";
-
-    // Fill & Line state
     private Color currentFillColor = new Color(239, 246, 255);
     private Color currentBorderColor = new Color(59, 130, 246);
     private int currentBorderWidth = 2;
@@ -63,59 +103,67 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
     private int currentBorderRadius = 10;
     private String currentShadowPreset = "soft";
 
-    // Size & Alignment state
-    private int currentWidth = 500;
-    private int currentHeight = 200;
+    private int currentWidth = 520;
+    private int currentHeight = 220;
     private String currentAlign = "center";
     private boolean lockAspectRatio = false;
     private double originalAspectRatio = 1.0;
 
-    // UI Input Components
-    private final JPanel fillSwatchPreview;
-    private final JPanel borderSwatchPreview;
-    private final JSpinner borderWidthSpinner;
-    private final JComboBox<String> borderStyleCombo;
-    private final JSlider radiusSlider;
-    private final JLabel radiusLabel;
-    private final JComboBox<String> shadowCombo;
+    // UI Input Controls
+    private JPanel fillSwatchPreview;
+    private JPanel borderSwatchPreview;
+    private JSpinner borderWidthSpinner;
+    private JComboBox<String> borderStyleCombo;
+    private JSlider radiusSlider;
+    private JLabel radiusLabel;
+    private JComboBox<String> shadowCombo;
 
-    private final JSpinner widthSpinner;
-    private final JSpinner heightSpinner;
-    private final JCheckBox aspectCheckbox;
+    private JSpinner widthSpinner;
+    private JSpinner heightSpinner;
+    private JCheckBox aspectCheckbox;
 
-    private final JTextField titleField;
-    private final JTextField valueField;
-    private final JTextField subtitleField;
-    private final JPanel textSectionPanel;
+    // Card text fields
+    private JTextField titleField;
+    private JTextField valueField;
+    private JTextField subtitleField;
+
+    // Shape text fields
+    private JTextField shapeTitleField;
+    private JTextArea shapeContentArea;
+
+    // Chart controls
+    private JComboBox<String> chartTypeCombo;
+    private JCheckBox chartShowValuesCheck;
+    private JCheckBox chartShowLegendCheck;
 
     private final Timer debouncedApplyTimer;
 
     public ShapeFormatSidePanel(DocumentCanvasPanel canvasPanel) {
         this.canvasPanel = canvasPanel;
         setLayout(new BorderLayout());
-        setMinimumSize(new Dimension(320, 200));
-        setPreferredSize(new Dimension(380, 600));
+        setMinimumSize(new Dimension(280, 160));
+        setPreferredSize(new Dimension(360, 600));
         setBackground(new Color(248, 250, 252));
         setBorder(BorderFactory.createMatteBorder(0, 1, 0, 0, new Color(226, 232, 240)));
 
         ThemeManager.addListener(this);
 
-        debouncedApplyTimer = new Timer(80, e -> performApply());
+        debouncedApplyTimer = new Timer(75, e -> performApply());
         debouncedApplyTimer.setRepeats(false);
 
-        // --- 1. Top Header Bar (Word-style Format Shape title) ---
+        // --- 1. Top Header Bar ---
         JPanel headerBar = new JPanel(new BorderLayout(8, 0));
         headerBar.setOpaque(false);
         headerBar.setBorder(new CompoundBorder(
                 BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(226, 232, 240)),
-                new EmptyBorder(12, 16, 12, 12)
+                new EmptyBorder(10, 14, 10, 10)
         ));
 
         JPanel titleBox = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         titleBox.setOpaque(false);
 
-        JLabel iconLabel = new JLabel(VectorIcons.create(VectorIcons.Type.SHAPE, 16, new Color(14, 165, 233)));
-        titleBox.add(iconLabel);
+        headerIconLabel = new JLabel(VectorIcons.create(VectorIcons.Type.SHAPE, 16, new Color(14, 165, 233)));
+        titleBox.add(headerIconLabel);
 
         headerTitleLabel = new JLabel("Format Shape");
         headerTitleLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
@@ -123,8 +171,12 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
         titleBox.add(headerTitleLabel);
 
         headerBadgeLabel = new JLabel("Card");
-        headerBadgeLabel.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+        headerBadgeLabel.setFont(new Font("Segoe UI", Font.BOLD, 10));
         headerBadgeLabel.setForeground(new Color(100, 116, 139));
+        headerBadgeLabel.setBorder(new CompoundBorder(
+                new LineBorder(new Color(203, 213, 225), 1, true),
+                new EmptyBorder(1, 5, 1, 5)
+        ));
         titleBox.add(headerBadgeLabel);
 
         headerBar.add(titleBox, BorderLayout.WEST);
@@ -138,13 +190,15 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
         widthToggleBtn.setContentAreaFilled(false);
         widthToggleBtn.setFocusPainted(false);
         widthToggleBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        widthToggleBtn.setToolTipText("Toggle standard / expanded width");
+        widthToggleBtn.setToolTipText("Toggle standard (340px) / expanded (440px) width");
         widthToggleBtn.addActionListener(e -> {
             int curW = getWidth();
-            int newW = (curW < 420) ? 480 : 380;
+            int newW = (curW < 380) ? 440 : 340;
             setPreferredSize(new Dimension(newW, getHeight()));
-            Container parent = getParent();
-            if (parent instanceof JSplitPane sp) {
+            JSplitPane sp = findAncestorSplitPane();
+            if (sp != null) {
+                int maxAllowed = Math.max(280, (int) (sp.getWidth() * 0.45));
+                newW = Math.min(newW, maxAllowed);
                 sp.setDividerLocation(sp.getWidth() - newW);
             }
             revalidate();
@@ -167,52 +221,274 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
         headerBar.add(headerActions, BorderLayout.EAST);
         add(headerBar, BorderLayout.NORTH);
 
-        // --- 2. Scrollable Body containing Formatting Sections ---
+        // --- 2. Main Content Panels ---
         contentCardsPanel = new JPanel();
         contentCardsPanel.setLayout(new BoxLayout(contentCardsPanel, BoxLayout.Y_AXIS));
         contentCardsPanel.setOpaque(false);
-        contentCardsPanel.setBorder(new EmptyBorder(12, 14, 20, 14));
+        contentCardsPanel.setBorder(new EmptyBorder(12, 14, 24, 14));
 
-        // Section A: Theme Palettes (Quick Styles)
-        JPanel themeSection = createSectionCard("COLOR THEMES & QUICK STYLES");
-        JPanel themesGrid = new JPanel(new GridLayout(2, 4, 6, 6));
-        themesGrid.setOpaque(false);
+        // Section: Picture Filters
+        pictureFilterSection = createPictureFilterSection();
+        contentCardsPanel.add(pictureFilterSection);
+
+        // Section: Chart Type
+        chartTypeSection = createChartTypeSection();
+        contentCardsPanel.add(chartTypeSection);
+
+        // Section: Chart Themes
+        chartThemeSection = createChartThemeSection();
+        contentCardsPanel.add(chartThemeSection);
+
+        // Section: Chart Display Options
+        chartOptionsSection = createChartOptionsSection();
+        contentCardsPanel.add(chartOptionsSection);
+
+        // Section: Card Themes
+        cardThemesSection = createCardThemesSection();
+        contentCardsPanel.add(cardThemesSection);
+
+        // Section: Fill & Background
+        fillSection = createFillSection();
+        contentCardsPanel.add(fillSection);
+
+        // Section: Line & Border
+        borderSection = createBorderSection();
+        contentCardsPanel.add(borderSection);
+
+        // Section: Shadow & Elevation
+        shadowSection = createShadowSection();
+        contentCardsPanel.add(shadowSection);
+
+        // Section: Size & Alignment
+        sizeSection = createSizeSection();
+        contentCardsPanel.add(sizeSection);
+
+        // Section: Card Text
+        cardTextSection = createCardTextSection();
+        contentCardsPanel.add(cardTextSection);
+
+        // Section: Shape Text
+        shapeTextSection = createShapeTextSection();
+        contentCardsPanel.add(shapeTextSection);
+
+        // Section: Table Tools
+        tableToolsSection = createTableToolsSection();
+        contentCardsPanel.add(tableToolsSection);
+
+        // Section: Actions
+        actionsSection = createActionsSection();
+        contentCardsPanel.add(actionsSection);
+
+        // ScrollPane with smooth scrolling
+        JScrollPane scrollPane = new JScrollPane(contentCardsPanel);
+        scrollPane.setBorder(null);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(18);
+        scrollPane.getHorizontalScrollBar().setUnitIncrement(18);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+
+        // Empty state overlay
+        emptyStatePanel = createEmptyStatePanel();
+
+        mainDeck = new JPanel(new CardLayout());
+        mainDeck.setOpaque(false);
+        mainDeck.add(scrollPane, "CONTENT");
+        mainDeck.add(emptyStatePanel, "EMPTY");
+
+        add(mainDeck, BorderLayout.CENTER);
+        showEmptyState();
+    }
+
+    private JSplitPane findAncestorSplitPane() {
+        Container p = getParent();
+        while (p != null) {
+            if (p instanceof JSplitPane sp) return sp;
+            p = p.getParent();
+        }
+        return null;
+    }
+
+    public void setCloseCallback(Runnable callback) {
+        this.closeCallback = callback;
+    }
+
+    // =========================================================================
+    // SECTION CREATION HELPERS
+    // =========================================================================
+
+    private JPanel createPictureFilterSection() {
+        JPanel section = createSectionCard("PICTURE FILTERS & STYLES");
+        JPanel grid = new JPanel(new GridLayout(2, 3, 6, 6));
+        grid.setOpaque(false);
+
+        String[][] filters = {
+                {"Original", "Reset to original colors"},
+                {"Grayscale", "Black & white monochrome"},
+                {"Sepia", "Vintage warm tone"},
+                {"Vivid", "High color saturation"},
+                {"Contrast", "High dynamic contrast"},
+                {"Invert", "Inverted colors"}
+        };
+
+        for (String[] f : filters) {
+            String name = f[0];
+            String tip = f[1];
+            JButton btn = new JButton(name);
+            btn.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+            btn.setBackground(Color.WHITE);
+            btn.setForeground(new Color(15, 23, 42));
+            btn.setFocusPainted(false);
+            btn.setToolTipText(tip);
+            btn.setBorder(new CompoundBorder(
+                    new LineBorder(new Color(226, 232, 240), 1, true),
+                    new EmptyBorder(5, 4, 5, 4)
+            ));
+            btn.addActionListener(e -> {
+                if (canvasPanel != null) {
+                    canvasPanel.applyImageFilter(name);
+                }
+            });
+            grid.add(btn);
+        }
+
+        section.add(grid);
+        return section;
+    }
+
+    private JPanel createChartTypeSection() {
+        JPanel section = createSectionCard("CHART VISUALIZATION TYPE");
+        JPanel row = new JPanel(new BorderLayout(8, 0));
+        row.setOpaque(false);
+
+        JLabel lbl = new JLabel("Chart Type:");
+        lbl.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        row.add(lbl, BorderLayout.WEST);
+
+        String[] types = {"Bar Chart", "Line Chart", "Area Chart", "Pie Chart", "Donut Chart", "KPI Card"};
+        chartTypeCombo = new JComboBox<>(types);
+        chartTypeCombo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        chartTypeCombo.addActionListener(e -> {
+            if (updatingUi) return;
+            String sel = (String) chartTypeCombo.getSelectedItem();
+            if (sel != null && canvasPanel != null) {
+                canvasPanel.switchSelectedChartType(sel);
+            }
+        });
+        row.add(chartTypeCombo, BorderLayout.CENTER);
+        section.add(row);
+        return section;
+    }
+
+    private JPanel createChartThemeSection() {
+        JPanel section = createSectionCard("CHART COLOR THEMES");
+        JPanel grid = new JPanel(new GridLayout(2, 4, 6, 6));
+        grid.setOpaque(false);
+
+        String[][] themes = {
+                {"Blue", "Corporate Blue", "#2563eb"},
+                {"Emerald", "Emerald Mint", "#10b981"},
+                {"Violet", "Violet Purple", "#8b5cf6"},
+                {"Amber", "Amber Gold", "#f59e0b"},
+                {"Crimson", "Crimson Rose", "#e11d48"},
+                {"Slate", "Dark Slate", "#334155"},
+                {"Minimal", "Clean Minimal", "#64748b"}
+        };
+
+        for (String[] t : themes) {
+            String shortName = t[0];
+            String fullName = t[1];
+            Color col = Color.decode(t[2]);
+
+            JButton btn = new JButton(shortName);
+            btn.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+            btn.setBackground(Color.WHITE);
+            btn.setForeground(new Color(30, 41, 59));
+            btn.setFocusPainted(false);
+            btn.setToolTipText("Apply " + fullName + " palette");
+            btn.setBorder(new CompoundBorder(
+                    new LineBorder(col, 2, true),
+                    new EmptyBorder(4, 2, 4, 2)
+            ));
+            btn.addActionListener(e -> {
+                if (canvasPanel != null) {
+                    canvasPanel.switchSelectedChartTheme(fullName);
+                }
+            });
+            grid.add(btn);
+        }
+
+        section.add(grid);
+        return section;
+    }
+
+    private JPanel createChartOptionsSection() {
+        JPanel section = createSectionCard("CHART DISPLAY OPTIONS");
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 2));
+        row.setOpaque(false);
+
+        chartShowValuesCheck = new JCheckBox("Show Values", true);
+        chartShowValuesCheck.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        chartShowValuesCheck.setOpaque(false);
+        chartShowValuesCheck.addActionListener(e -> {
+            if (updatingUi) return;
+            if (canvasPanel != null) canvasPanel.toggleChartValues();
+        });
+        row.add(chartShowValuesCheck);
+
+        chartShowLegendCheck = new JCheckBox("Show Legend", true);
+        chartShowLegendCheck.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        chartShowLegendCheck.setOpaque(false);
+        chartShowLegendCheck.addActionListener(e -> {
+            if (updatingUi) return;
+            if (canvasPanel != null) canvasPanel.toggleChartLegend();
+        });
+        row.add(chartShowLegendCheck);
+
+        section.add(row);
+        return section;
+    }
+
+    private JPanel createCardThemesSection() {
+        JPanel section = createSectionCard("COLOR THEMES & QUICK STYLES");
+        JPanel grid = new JPanel(new GridLayout(2, 4, 6, 6));
+        grid.setOpaque(false);
 
         for (Map.Entry<String, CardShapeCustomizerDialog.ThemePalette> entry : CardShapeCustomizerDialog.PALETTES.entrySet()) {
             String key = entry.getKey();
             CardShapeCustomizerDialog.ThemePalette pal = entry.getValue();
             JButton palBtn = createPaletteButton(key, pal);
-            themesGrid.add(palBtn);
+            grid.add(palBtn);
         }
-        themeSection.add(themesGrid);
-        contentCardsPanel.add(themeSection);
-        contentCardsPanel.add(Box.createVerticalStrut(10));
+        section.add(grid);
+        return section;
+    }
 
-        // Section B: Fill & Color
-        JPanel fillSection = createSectionCard("FILL & BACKGROUND");
-        JPanel fillRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 2));
-        fillRow.setOpaque(false);
+    private JPanel createFillSection() {
+        JPanel section = createSectionCard("FILL & BACKGROUND");
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 2));
+        row.setOpaque(false);
 
         JLabel fillLbl = new JLabel("Fill Color:");
         fillLbl.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        fillRow.add(fillLbl);
+        row.add(fillLbl);
 
         fillSwatchPreview = createColorSwatch("Pick Background Fill Color", c -> {
             currentFillColor = c;
             triggerDebouncedApply();
         });
-        fillRow.add(fillSwatchPreview);
+        row.add(fillSwatchPreview);
 
-        fillSection.add(fillRow);
-        contentCardsPanel.add(fillSection);
-        contentCardsPanel.add(Box.createVerticalStrut(10));
+        section.add(row);
+        return section;
+    }
 
-        // Section C: Line & Border
-        JPanel borderSection = createSectionCard("LINE & BORDER OUTLINE");
+    private JPanel createBorderSection() {
+        JPanel section = createSectionCard("LINE & BORDER OUTLINE");
+
         JPanel bStyleRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 3));
         bStyleRow.setOpaque(false);
 
-        JLabel bStyleLbl = new JLabel("Line Style:");
+        JLabel bStyleLbl = new JLabel("Style:");
         bStyleLbl.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         bStyleRow.add(bStyleLbl);
 
@@ -235,7 +511,7 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
             triggerDebouncedApply();
         });
         bStyleRow.add(borderSwatchPreview);
-        borderSection.add(bStyleRow);
+        section.add(bStyleRow);
 
         JPanel bWeightRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 3));
         bWeightRow.setOpaque(false);
@@ -252,7 +528,7 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
             triggerDebouncedApply();
         });
         bWeightRow.add(borderWidthSpinner);
-        borderSection.add(bWeightRow);
+        section.add(bWeightRow);
 
         // Corner Radius
         JPanel radiusRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 3));
@@ -261,8 +537,8 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
         radLbl.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         radiusRow.add(radLbl);
 
-        radiusSlider = new JSlider(0, 30, currentBorderRadius);
-        radiusSlider.setPreferredSize(new Dimension(140, 24));
+        radiusSlider = new JSlider(0, 40, currentBorderRadius);
+        radiusSlider.setPreferredSize(new Dimension(130, 24));
         radiusSlider.setOpaque(false);
         radiusLabel = new JLabel(currentBorderRadius + " px");
         radiusLabel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
@@ -275,13 +551,13 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
         });
         radiusRow.add(radiusSlider);
         radiusRow.add(radiusLabel);
-        borderSection.add(radiusRow);
+        section.add(radiusRow);
 
-        contentCardsPanel.add(borderSection);
-        contentCardsPanel.add(Box.createVerticalStrut(10));
+        return section;
+    }
 
-        // Section D: Shadow & Effects
-        JPanel shadowSection = createSectionCard("SHADOW & ELEVATION");
+    private JPanel createShadowSection() {
+        JPanel section = createSectionCard("SHADOW & ELEVATION");
         JPanel shadowRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 3));
         shadowRow.setOpaque(false);
 
@@ -298,13 +574,12 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
             triggerDebouncedApply();
         });
         shadowRow.add(shadowCombo);
-        shadowSection.add(shadowRow);
+        section.add(shadowRow);
+        return section;
+    }
 
-        contentCardsPanel.add(shadowSection);
-        contentCardsPanel.add(Box.createVerticalStrut(10));
-
-        // Section E: Size & Alignment
-        JPanel sizeSection = createSectionCard("SIZE & ALIGNMENT");
+    private JPanel createSizeSection() {
+        JPanel section = createSectionCard("SIZE & ALIGNMENT");
         JPanel sizeRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 3));
         sizeRow.setOpaque(false);
 
@@ -312,12 +587,8 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
         wLbl.setFont(new Font("Segoe UI", Font.BOLD, 11));
         sizeRow.add(wLbl);
 
-        widthSpinner = new JSpinner(new SpinnerNumberModel(520, 50, 1200, 10));
+        widthSpinner = new JSpinner(new SpinnerNumberModel(520, 40, 1600, 10));
         widthSpinner.setPreferredSize(new Dimension(65, 26));
-
-        heightSpinner = new JSpinner(new SpinnerNumberModel(200, 30, 1600, 10));
-        heightSpinner.setPreferredSize(new Dimension(65, 26));
-
         widthSpinner.addChangeListener(e -> {
             if (updatingUi) return;
             currentWidth = (Integer) widthSpinner.getValue();
@@ -335,6 +606,8 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
         hLbl.setFont(new Font("Segoe UI", Font.BOLD, 11));
         sizeRow.add(hLbl);
 
+        heightSpinner = new JSpinner(new SpinnerNumberModel(200, 20, 1600, 10));
+        heightSpinner.setPreferredSize(new Dimension(65, 26));
         heightSpinner.addChangeListener(e -> {
             if (updatingUi) return;
             currentHeight = (Integer) heightSpinner.getValue();
@@ -348,7 +621,7 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
         });
         sizeRow.add(heightSpinner);
 
-        aspectCheckbox = new JCheckBox("Lock Ratio", false);
+        aspectCheckbox = new JCheckBox("Lock", false);
         aspectCheckbox.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         aspectCheckbox.setOpaque(false);
         aspectCheckbox.addActionListener(e -> {
@@ -358,7 +631,7 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
             }
         });
         sizeRow.add(aspectCheckbox);
-        sizeSection.add(sizeRow);
+        section.add(sizeRow);
 
         // Alignment Buttons
         JPanel alignRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 4));
@@ -373,34 +646,64 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
         alignRow.add(btnLeft);
         alignRow.add(btnCenter);
         alignRow.add(btnRight);
-        sizeSection.add(alignRow);
+        section.add(alignRow);
 
-        contentCardsPanel.add(sizeSection);
-        contentCardsPanel.add(Box.createVerticalStrut(10));
+        // Quick Fit Buttons
+        JPanel fitRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 2));
+        fitRow.setOpaque(false);
+        JButton btnFitMargin = new JButton("Fit Page (560px)");
+        btnFitMargin.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        btnFitMargin.setBackground(Color.WHITE);
+        btnFitMargin.addActionListener(e -> {
+            widthSpinner.setValue(560);
+        });
+        fitRow.add(btnFitMargin);
 
-        // Section F: Card Text & Metrics (Live Text Editing)
-        textSectionPanel = createSectionCard("CARD TEXT & METRICS");
-        textSectionPanel.setLayout(new BoxLayout(textSectionPanel, BoxLayout.Y_AXIS));
+        JButton btnScaleDown = new JButton("-10%");
+        btnScaleDown.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        btnScaleDown.setBackground(Color.WHITE);
+        btnScaleDown.addActionListener(e -> {
+            int nw = Math.max(80, (int) (currentWidth * 0.9));
+            widthSpinner.setValue(nw);
+        });
+        fitRow.add(btnScaleDown);
+
+        JButton btnScaleUp = new JButton("+10%");
+        btnScaleUp.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        btnScaleUp.setBackground(Color.WHITE);
+        btnScaleUp.addActionListener(e -> {
+            int nw = Math.min(1200, (int) (currentWidth * 1.1));
+            widthSpinner.setValue(nw);
+        });
+        fitRow.add(btnScaleUp);
+
+        section.add(fitRow);
+        return section;
+    }
+
+    private JPanel createCardTextSection() {
+        JPanel section = createSectionCard("CARD TEXT & METRICS");
+        section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
 
         JLabel tLbl = new JLabel("Title / Topic:");
         tLbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         tLbl.setForeground(new Color(71, 85, 105));
         tLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
-        textSectionPanel.add(tLbl);
+        section.add(tLbl);
 
         titleField = new JTextField();
         titleField.setFont(new Font("Segoe UI", Font.BOLD, 12));
         titleField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
         titleField.setAlignmentX(Component.LEFT_ALIGNMENT);
         titleField.getDocument().addDocumentListener(createFieldDocListener());
-        textSectionPanel.add(titleField);
-        textSectionPanel.add(Box.createVerticalStrut(6));
+        section.add(titleField);
+        section.add(Box.createVerticalStrut(6));
 
-        JLabel vLbl = new JLabel("Metric / Key Value (e.g. $128,450):");
+        JLabel vLbl = new JLabel("Highlight Metric Value (e.g. $128,450):");
         vLbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         vLbl.setForeground(new Color(71, 85, 105));
         vLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
-        textSectionPanel.add(vLbl);
+        section.add(vLbl);
 
         valueField = new JTextField();
         valueField.setFont(new Font("Segoe UI", Font.BOLD, 15));
@@ -408,27 +711,134 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
         valueField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
         valueField.setAlignmentX(Component.LEFT_ALIGNMENT);
         valueField.getDocument().addDocumentListener(createFieldDocListener());
-        textSectionPanel.add(valueField);
-        textSectionPanel.add(Box.createVerticalStrut(6));
+        section.add(valueField);
+        section.add(Box.createVerticalStrut(6));
 
         JLabel sLbl = new JLabel("Subtitle / Description:");
         sLbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         sLbl.setForeground(new Color(71, 85, 105));
         sLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
-        textSectionPanel.add(sLbl);
+        section.add(sLbl);
 
         subtitleField = new JTextField();
         subtitleField.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         subtitleField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
         subtitleField.setAlignmentX(Component.LEFT_ALIGNMENT);
         subtitleField.getDocument().addDocumentListener(createFieldDocListener());
-        textSectionPanel.add(subtitleField);
+        section.add(subtitleField);
 
-        contentCardsPanel.add(textSectionPanel);
-        contentCardsPanel.add(Box.createVerticalStrut(10));
+        return section;
+    }
 
-        // Section G: Actions
-        JPanel actionsSection = createSectionCard("ACTIONS");
+    private JPanel createShapeTextSection() {
+        JPanel section = createSectionCard("SHAPE & CALLOUT TEXT");
+        section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
+
+        JLabel tLbl = new JLabel("Header / Label:");
+        tLbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        tLbl.setForeground(new Color(71, 85, 105));
+        tLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+        section.add(tLbl);
+
+        shapeTitleField = new JTextField();
+        shapeTitleField.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        shapeTitleField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
+        shapeTitleField.setAlignmentX(Component.LEFT_ALIGNMENT);
+        shapeTitleField.getDocument().addDocumentListener(createFieldDocListener());
+        section.add(shapeTitleField);
+        section.add(Box.createVerticalStrut(6));
+
+        JLabel cLbl = new JLabel("Content / Message:");
+        cLbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        cLbl.setForeground(new Color(71, 85, 105));
+        cLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+        section.add(cLbl);
+
+        shapeContentArea = new JTextArea(3, 20);
+        shapeContentArea.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        shapeContentArea.setLineWrap(true);
+        shapeContentArea.setWrapStyleWord(true);
+        shapeContentArea.getDocument().addDocumentListener(createFieldDocListener());
+        JScrollPane sp = new JScrollPane(shapeContentArea);
+        sp.setAlignmentX(Component.LEFT_ALIGNMENT);
+        sp.setMaximumSize(new Dimension(Integer.MAX_VALUE, 70));
+        section.add(sp);
+
+        return section;
+    }
+
+    private JPanel createTableToolsSection() {
+        JPanel section = createSectionCard("TABLE FORMATTING & TOOLS");
+
+        // Table Styles Grid
+        JLabel styleLbl = new JLabel("Table Preset Style:");
+        styleLbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        styleLbl.setForeground(new Color(71, 85, 105));
+        section.add(styleLbl);
+
+        JPanel stylesGrid = new JPanel(new GridLayout(2, 3, 6, 6));
+        stylesGrid.setOpaque(false);
+        String[] tStyles = {"Corporate Blue", "Modern Slate", "Emerald Green", "Striped Zebra", "Minimalist"};
+        for (String st : tStyles) {
+            JButton btn = new JButton(st);
+            btn.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+            btn.setBackground(Color.WHITE);
+            btn.setFocusPainted(false);
+            btn.addActionListener(e -> {
+                if (canvasPanel != null) canvasPanel.applyTableStyle(st);
+            });
+            stylesGrid.add(btn);
+        }
+        section.add(stylesGrid);
+        section.add(Box.createVerticalStrut(10));
+
+        // Row/Col Operations
+        JLabel opsLbl = new JLabel("Row & Column Operations:");
+        opsLbl.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        opsLbl.setForeground(new Color(71, 85, 105));
+        section.add(opsLbl);
+
+        JPanel opsGrid = new JPanel(new GridLayout(3, 2, 6, 6));
+        opsGrid.setOpaque(false);
+
+        JButton btnRowBelow = new JButton("+ Row Below");
+        btnRowBelow.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        btnRowBelow.addActionListener(e -> { if (canvasPanel != null) canvasPanel.insertTableRowBelow(); });
+        opsGrid.add(btnRowBelow);
+
+        JButton btnRowAbove = new JButton("+ Row Above");
+        btnRowAbove.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        btnRowAbove.addActionListener(e -> { if (canvasPanel != null) canvasPanel.insertTableRowAbove(); });
+        opsGrid.add(btnRowAbove);
+
+        JButton btnColRight = new JButton("+ Col Right");
+        btnColRight.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        btnColRight.addActionListener(e -> { if (canvasPanel != null) canvasPanel.insertTableColumnRight(); });
+        opsGrid.add(btnColRight);
+
+        JButton btnColLeft = new JButton("+ Col Left");
+        btnColLeft.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        btnColLeft.addActionListener(e -> { if (canvasPanel != null) canvasPanel.insertTableColumnLeft(); });
+        opsGrid.add(btnColLeft);
+
+        JButton btnDelRow = new JButton("Delete Row");
+        btnDelRow.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        btnDelRow.setForeground(new Color(225, 29, 72));
+        btnDelRow.addActionListener(e -> { if (canvasPanel != null) canvasPanel.deleteTableRow(); });
+        opsGrid.add(btnDelRow);
+
+        JButton btnDelCol = new JButton("Delete Col");
+        btnDelCol.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        btnDelCol.setForeground(new Color(225, 29, 72));
+        btnDelCol.addActionListener(e -> { if (canvasPanel != null) canvasPanel.deleteTableColumn(); });
+        opsGrid.add(btnDelCol);
+
+        section.add(opsGrid);
+        return section;
+    }
+
+    private JPanel createActionsSection() {
+        JPanel section = createSectionCard("ACTIONS");
         JPanel actRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
         actRow.setOpaque(false);
 
@@ -436,17 +846,20 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
         styleActionButton(duplicateBtn, new Color(241, 245, 249), new Color(15, 23, 42));
         duplicateBtn.setToolTipText("Clone this object in the document");
         duplicateBtn.addActionListener(e -> {
-            if (currentElement != null) {
+            if (currentElement != null && canvasPanel != null) {
                 canvasPanel.duplicateCardShapeElement(currentElement);
             }
         });
         actRow.add(duplicateBtn);
 
-        JButton dialogBtn = new JButton("Modal...", VectorIcons.create(VectorIcons.Type.SETTINGS, 12, new Color(14, 165, 233)));
+        JButton dialogBtn = new JButton("Edit Data...", VectorIcons.create(VectorIcons.Type.SETTINGS, 12, new Color(14, 165, 233)));
         styleActionButton(dialogBtn, new Color(239, 246, 255), new Color(2, 132, 199));
-        dialogBtn.setToolTipText("Open full Card & Shape Dialog");
+        dialogBtn.setToolTipText("Open full editor dialog");
         dialogBtn.addActionListener(e -> {
-            if (currentElement != null) {
+            if (canvasPanel == null) return;
+            if (currentObjectType == ObjectType.CHART) {
+                canvasPanel.modifySelectedChartData();
+            } else if (currentElement != null) {
                 canvasPanel.openCardShapeEditor(currentElement);
             }
         });
@@ -456,73 +869,256 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
         styleActionButton(deleteBtn, new Color(254, 242, 242), new Color(225, 29, 72));
         deleteBtn.setToolTipText("Remove object from document");
         deleteBtn.addActionListener(e -> {
-            if (currentElement != null) {
-                canvasPanel.deleteCardShapeElement(currentElement);
+            if (currentElement != null && canvasPanel != null) {
+                if (currentObjectType == ObjectType.TABLE) {
+                    canvasPanel.deleteTable();
+                } else if (currentObjectType == ObjectType.VIDEO) {
+                    canvasPanel.deleteSelectedVideo();
+                } else {
+                    canvasPanel.deleteCardShapeElement(currentElement);
+                }
                 showEmptyState();
             }
         });
         actRow.add(deleteBtn);
-        actionsSection.add(actRow);
-
-        contentCardsPanel.add(actionsSection);
-
-        // Empty state overlay when nothing is selected
-        emptyStatePanel = new JPanel(new GridBagLayout());
-        emptyStatePanel.setOpaque(false);
-        emptyStatePanel.setBorder(new EmptyBorder(32, 20, 32, 20));
-        JPanel emptyInner = new JPanel();
-        emptyInner.setLayout(new BoxLayout(emptyInner, BoxLayout.Y_AXIS));
-        emptyInner.setOpaque(false);
-
-        JLabel emptyIcon = new JLabel(VectorIcons.create(VectorIcons.Type.SHAPE, 36, new Color(148, 163, 184)));
-        emptyIcon.setAlignmentX(Component.CENTER_ALIGNMENT);
-        emptyInner.add(emptyIcon);
-        emptyInner.add(Box.createVerticalStrut(12));
-
-        JLabel emptyTitle = new JLabel("No Object Selected");
-        emptyTitle.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        emptyTitle.setForeground(new Color(71, 85, 105));
-        emptyTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
-        emptyInner.add(emptyTitle);
-        emptyInner.add(Box.createVerticalStrut(6));
-
-        JLabel emptySub = new JLabel("<html><center>Left-click any card, shape, image, or chart to open its formatting tools.</center></html>");
-        emptySub.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        emptySub.setForeground(new Color(148, 163, 184));
-        emptySub.setAlignmentX(Component.CENTER_ALIGNMENT);
-        emptyInner.add(emptySub);
-
-        emptyStatePanel.add(emptyInner);
-
-        JScrollPane scrollPane = new JScrollPane(contentCardsPanel);
-        scrollPane.setBorder(null);
-        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
-        scrollPane.setOpaque(false);
-        scrollPane.getViewport().setOpaque(false);
-
-        JPanel mainDeck = new JPanel(new CardLayout());
-        mainDeck.setOpaque(false);
-        mainDeck.add(scrollPane, "CONTENT");
-        mainDeck.add(emptyStatePanel, "EMPTY");
-
-        add(mainDeck, BorderLayout.CENTER);
-        showEmptyState();
+        section.add(actRow);
+        return section;
     }
 
-    public void setCloseCallback(Runnable callback) {
-        this.closeCallback = callback;
+    private JPanel createEmptyStatePanel() {
+        JPanel p = new JPanel(new GridBagLayout());
+        p.setOpaque(false);
+        p.setBorder(new EmptyBorder(32, 20, 32, 20));
+
+        JPanel inner = new JPanel();
+        inner.setLayout(new BoxLayout(inner, BoxLayout.Y_AXIS));
+        inner.setOpaque(false);
+
+        JLabel icon = new JLabel(VectorIcons.create(VectorIcons.Type.SHAPE, 38, new Color(148, 163, 184)));
+        icon.setAlignmentX(Component.CENTER_ALIGNMENT);
+        inner.add(icon);
+        inner.add(Box.createVerticalStrut(14));
+
+        JLabel title = new JLabel("No Object Selected");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        title.setForeground(new Color(71, 85, 105));
+        title.setAlignmentX(Component.CENTER_ALIGNMENT);
+        inner.add(title);
+        inner.add(Box.createVerticalStrut(6));
+
+        JLabel sub = new JLabel("<html><center>Left-click any picture, chart, card, shape, or table to view its properties.</center></html>");
+        sub.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        sub.setForeground(new Color(148, 163, 184));
+        sub.setAlignmentX(Component.CENTER_ALIGNMENT);
+        inner.add(sub);
+
+        p.add(inner);
+        return p;
     }
 
-    private DocumentListener createFieldDocListener() {
-        return new DocumentListener() {
-            @Override public void insertUpdate(DocumentEvent e) { onDoc(); }
-            @Override public void removeUpdate(DocumentEvent e) { onDoc(); }
-            @Override public void changedUpdate(DocumentEvent e) { onDoc(); }
-            private void onDoc() {
-                if (updatingUi) return;
-                triggerDebouncedApply();
+    // =========================================================================
+    // OBJECT SELECTION & RELEVANT PROPERTY ORCHESTRATION
+    // =========================================================================
+
+    public void loadElement(Element elem) {
+        if (elem == null) {
+            showEmptyState();
+            return;
+        }
+
+        this.currentElement = elem;
+        this.currentObjectType = detectObjectType(elem);
+        this.updatingUi = true;
+
+        try {
+            // 1. Update Header
+            headerTitleLabel.setText(currentObjectType.title);
+            headerBadgeLabel.setText(currentObjectType.badge);
+            headerBadgeLabel.setForeground(currentObjectType.accent);
+            headerIconLabel.setIcon(VectorIcons.create(currentObjectType.iconType, 16, currentObjectType.accent));
+
+            // 2. Dynamically Show ONLY Relevant Sections for this Object
+            configureSectionsForObjectType(currentObjectType);
+
+            // 3. Populate Properties
+            AttributeSet attrs = elem.getAttributes();
+            parseInlineStyle(elem);
+
+            Rectangle bounds = canvasPanel != null ? canvasPanel.getSelectedMediaBounds() : null;
+            if (bounds != null && bounds.width > 0) {
+                currentWidth = bounds.width;
+                currentHeight = bounds.height;
+            } else if (attrs != null) {
+                Object wObj = attrs.getAttribute(HTML.Attribute.WIDTH);
+                Object hObj = attrs.getAttribute(HTML.Attribute.HEIGHT);
+                try { if (wObj != null) currentWidth = Integer.parseInt(wObj.toString()); } catch (Exception ignored) {}
+                try { if (hObj != null) currentHeight = Integer.parseInt(hObj.toString()); } catch (Exception ignored) {}
             }
-        };
+            originalAspectRatio = currentHeight > 0 ? (double) currentWidth / currentHeight : 1.0;
+
+            widthSpinner.setValue(currentWidth);
+            heightSpinner.setValue(currentHeight);
+
+            // Text extraction for cards and shapes
+            if (currentObjectType == ObjectType.METRIC_CARD || currentObjectType == ObjectType.SHAPE) {
+                HTMLDocument doc = (HTMLDocument) canvasPanel.getTextPane().getDocument();
+                String plain = canvasPanel.getElementPlainText(doc, elem);
+                String[] lines = plain.split("\n");
+                java.util.List<String> valid = new java.util.ArrayList<>();
+                for (String l : lines) {
+                    String trim = l.trim();
+                    if (!trim.isEmpty()) valid.add(trim);
+                }
+
+                if (currentObjectType == ObjectType.METRIC_CARD) {
+                    if (valid.size() == 1) {
+                        titleField.setText(valid.get(0));
+                        valueField.setText("");
+                        subtitleField.setText("");
+                    } else if (valid.size() == 2) {
+                        titleField.setText(valid.get(0));
+                        valueField.setText("");
+                        subtitleField.setText(valid.get(1));
+                    } else if (valid.size() >= 3) {
+                        titleField.setText(valid.get(0));
+                        valueField.setText(valid.get(1));
+                        StringBuilder sb = new StringBuilder();
+                        for (int i = 2; i < valid.size(); i++) {
+                            if (sb.length() > 0) sb.append(" ");
+                            sb.append(valid.get(i));
+                        }
+                        subtitleField.setText(sb.toString());
+                    } else {
+                        titleField.setText("");
+                        valueField.setText("");
+                        subtitleField.setText("");
+                    }
+                } else {
+                    if (!valid.isEmpty()) {
+                        shapeTitleField.setText(valid.get(0));
+                        StringBuilder sb = new StringBuilder();
+                        for (int i = 1; i < valid.size(); i++) {
+                            if (sb.length() > 0) sb.append("\n");
+                            sb.append(valid.get(i));
+                        }
+                        shapeContentArea.setText(sb.toString());
+                    } else {
+                        shapeTitleField.setText("");
+                        shapeContentArea.setText("");
+                    }
+                }
+
+                if (attrs != null) {
+                    Object themeAttr = attrs.getAttribute("data-theme");
+                    if (themeAttr != null) {
+                        selectedThemeKey = themeAttr.toString().toUpperCase();
+                    }
+                }
+            }
+
+            fillSwatchPreview.repaint();
+            borderSwatchPreview.repaint();
+            borderWidthSpinner.setValue(currentBorderWidth);
+            borderStyleCombo.setSelectedItem(currentBorderStyle);
+            radiusSlider.setValue(currentBorderRadius);
+            radiusLabel.setText(currentBorderRadius + " px");
+            shadowCombo.setSelectedItem(currentShadowPreset);
+
+            CardLayout cl = (CardLayout) mainDeck.getLayout();
+            cl.show(mainDeck, "CONTENT");
+
+        } finally {
+            this.updatingUi = false;
+        }
+
+        revalidate();
+        repaint();
+    }
+
+    private void configureSectionsForObjectType(ObjectType type) {
+        // Toggle visibility of each section cleanly
+        pictureFilterSection.setVisible(type == ObjectType.PICTURE);
+        chartTypeSection.setVisible(type == ObjectType.CHART);
+        chartThemeSection.setVisible(type == ObjectType.CHART);
+        chartOptionsSection.setVisible(type == ObjectType.CHART);
+
+        cardThemesSection.setVisible(type == ObjectType.METRIC_CARD);
+        fillSection.setVisible(type == ObjectType.METRIC_CARD || type == ObjectType.SHAPE);
+        borderSection.setVisible(type != ObjectType.TABLE);
+        shadowSection.setVisible(type != ObjectType.TABLE);
+        sizeSection.setVisible(type != ObjectType.TABLE);
+
+        cardTextSection.setVisible(type == ObjectType.METRIC_CARD);
+        shapeTextSection.setVisible(type == ObjectType.SHAPE);
+        tableToolsSection.setVisible(type == ObjectType.TABLE);
+        actionsSection.setVisible(true);
+    }
+
+    private ObjectType detectObjectType(Element elem) {
+        if (elem == null) return ObjectType.SHAPE;
+
+        // Check if Table
+        Element cur = elem;
+        while (cur != null) {
+            String name = cur.getName();
+            if ("table".equalsIgnoreCase(name) || "td".equalsIgnoreCase(name) || "th".equalsIgnoreCase(name) || "tr".equalsIgnoreCase(name)) {
+                return ObjectType.TABLE;
+            }
+            cur = cur.getParentElement();
+        }
+
+        AttributeSet attrs = elem.getAttributes();
+        if (attrs == null) return ObjectType.SHAPE;
+
+        Object nameAttr = attrs.getAttribute(StyleConstants.NameAttribute);
+        String nameStr = nameAttr != null ? nameAttr.toString().toLowerCase() : elem.getName().toLowerCase();
+
+        // Check if IMG
+        if (HTML.Tag.IMG.equals(nameAttr) || "img".equals(nameStr)) {
+            if (canvasPanel != null && canvasPanel.getSelectedChartMetadata() != null) {
+                return ObjectType.CHART;
+            }
+            Object srcObj = attrs.getAttribute(HTML.Attribute.SRC);
+            String src = srcObj != null ? srcObj.toString() : "";
+            if (src.contains("charts/") || src.contains(".chart.png") || src.contains("chart_") || attrs.getAttribute("data-chart") != null) {
+                return ObjectType.CHART;
+            }
+            return ObjectType.PICTURE;
+        }
+
+        // Check classes & data attributes
+        Object classAttr = attrs.getAttribute(HTML.Attribute.CLASS);
+        if (classAttr == null) classAttr = attrs.getAttribute("class");
+        String classStr = classAttr != null ? classAttr.toString().toLowerCase() : "";
+
+        if (classStr.contains("wb-video-card") || attrs.getAttribute("data-video") != null) {
+            return ObjectType.VIDEO;
+        }
+
+        if (classStr.contains("chart") || attrs.getAttribute("data-chart") != null) {
+            return ObjectType.CHART;
+        }
+
+        if (classStr.contains("wb-callout") || classStr.contains("wb-flow") || classStr.contains("wb-shape")
+                || attrs.getAttribute("data-callout") != null || attrs.getAttribute("data-shape") != null) {
+            return ObjectType.SHAPE;
+        }
+
+        if (classStr.contains("wb-card") || attrs.getAttribute("data-card") != null) {
+            return ObjectType.METRIC_CARD;
+        }
+
+        return ObjectType.METRIC_CARD;
+    }
+
+    public void showEmptyState() {
+        this.currentElement = null;
+        CardLayout cl = (CardLayout) mainDeck.getLayout();
+        cl.show(mainDeck, "EMPTY");
+        headerTitleLabel.setText("Format Pane");
+        headerBadgeLabel.setText("Ready");
+        headerBadgeLabel.setForeground(new Color(100, 116, 139));
+        headerIconLabel.setIcon(VectorIcons.create(VectorIcons.Type.SHAPE, 16, new Color(148, 163, 184)));
     }
 
     private void triggerDebouncedApply() {
@@ -530,8 +1126,9 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
     }
 
     private void performApply() {
-        if (currentElement == null) return;
-        if (isImageElement) {
+        if (currentElement == null || canvasPanel == null) return;
+
+        if (currentObjectType == ObjectType.PICTURE) {
             canvasPanel.applyImageFullFormatting(
                     currentElement,
                     currentWidth,
@@ -543,7 +1140,7 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
                     currentShadowPreset,
                     currentAlign
             );
-        } else {
+        } else if (currentObjectType == ObjectType.METRIC_CARD) {
             canvasPanel.applyCardShapeFullFormatting(
                     currentElement,
                     titleField.getText(),
@@ -559,132 +1156,54 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
                     currentWidth,
                     currentAlign
             );
+        } else if (currentObjectType == ObjectType.SHAPE) {
+            canvasPanel.applyCardShapeFullFormatting(
+                    currentElement,
+                    shapeTitleField.getText(),
+                    "",
+                    shapeContentArea.getText(),
+                    selectedThemeKey,
+                    currentFillColor,
+                    currentBorderColor,
+                    currentBorderWidth,
+                    currentBorderStyle,
+                    currentBorderRadius,
+                    currentShadowPreset,
+                    currentWidth,
+                    currentAlign
+            );
         }
     }
 
-    /**
-     * Loads an element into the formatting panel, populating all fields.
-     */
-    public void loadElement(Element elem) {
-        if (elem == null) {
-            showEmptyState();
-            return;
+    private void setAlignment(String align) {
+        this.currentAlign = align;
+        if (currentElement != null && canvasPanel != null) {
+            canvasPanel.alignCardShapeElement(currentElement, align);
         }
+    }
 
-        this.currentElement = elem;
-        updatingUi = true;
-
-        try {
-            AttributeSet attrs = elem.getAttributes();
-            Object nameAttr = attrs != null ? attrs.getAttribute(StyleConstants.NameAttribute) : null;
-            this.isImageElement = HTML.Tag.IMG.equals(nameAttr);
-
-            Container parent = emptyStatePanel.getParent();
-            if (parent != null && parent.getLayout() instanceof CardLayout cl) {
-                cl.show(parent, "CONTENT");
+    private DocumentListener createFieldDocListener() {
+        return new DocumentListener() {
+            @Override public void insertUpdate(DocumentEvent e) { onDoc(); }
+            @Override public void removeUpdate(DocumentEvent e) { onDoc(); }
+            @Override public void changedUpdate(DocumentEvent e) { onDoc(); }
+            private void onDoc() {
+                if (updatingUi) return;
+                triggerDebouncedApply();
             }
-
-            if (isImageElement) {
-                headerTitleLabel.setText("Format Picture");
-                headerBadgeLabel.setText("Image");
-                textSectionPanel.setVisible(false);
-
-                // Dimensions
-                Rectangle b = canvasPanel.getSelectedMediaBounds();
-                if (b != null && b.width > 0) {
-                    currentWidth = b.width;
-                    currentHeight = b.height;
-                } else {
-                    Object wObj = attrs.getAttribute(HTML.Attribute.WIDTH);
-                    Object hObj = attrs.getAttribute(HTML.Attribute.HEIGHT);
-                    try { currentWidth = wObj != null ? Integer.parseInt(wObj.toString()) : 500; } catch (Exception ignored) {}
-                    try { currentHeight = hObj != null ? Integer.parseInt(hObj.toString()) : 300; } catch (Exception ignored) {}
-                }
-                originalAspectRatio = currentHeight > 0 ? (double) currentWidth / currentHeight : 1.0;
-                widthSpinner.setValue(currentWidth);
-                heightSpinner.setValue(currentHeight);
-
-                parseInlineStyle(elem);
-            } else {
-                headerTitleLabel.setText("Format Shape");
-                headerBadgeLabel.setText("Card / Shape");
-                textSectionPanel.setVisible(true);
-
-                // Parse Text
-                HTMLDocument doc = (HTMLDocument) canvasPanel.getTextPane().getDocument();
-                String plain = canvasPanel.getElementPlainText(doc, elem);
-                String[] lines = plain.split("\n");
-                java.util.List<String> valid = new java.util.ArrayList<>();
-                for (String l : lines) {
-                    String trim = l.trim();
-                    if (!trim.isEmpty()) valid.add(trim);
-                }
-                if (valid.size() == 1) {
-                    titleField.setText(valid.get(0));
-                    valueField.setText("");
-                    subtitleField.setText("");
-                } else if (valid.size() == 2) {
-                    titleField.setText(valid.get(0));
-                    valueField.setText("");
-                    subtitleField.setText(valid.get(1));
-                } else if (valid.size() >= 3) {
-                    titleField.setText(valid.get(0));
-                    valueField.setText(valid.get(1));
-                    StringBuilder sb = new StringBuilder();
-                    for (int i = 2; i < valid.size(); i++) {
-                        if (sb.length() > 0) sb.append(" ");
-                        sb.append(valid.get(i));
-                    }
-                    subtitleField.setText(sb.toString());
-                } else {
-                    titleField.setText("");
-                    valueField.setText("");
-                    subtitleField.setText("");
-                }
-
-                // Theme
-                Object themeAttr = attrs.getAttribute("data-theme");
-                if (themeAttr != null) {
-                    selectedThemeKey = themeAttr.toString().toUpperCase();
-                }
-
-                parseInlineStyle(elem);
-
-                Rectangle b = canvasPanel.getSelectedMediaBounds();
-                if (b != null && b.width > 0) {
-                    currentWidth = b.width;
-                    currentHeight = b.height;
-                    widthSpinner.setValue(currentWidth);
-                    heightSpinner.setValue(currentHeight);
-                }
-            }
-
-            fillSwatchPreview.repaint();
-            borderSwatchPreview.repaint();
-            borderWidthSpinner.setValue(currentBorderWidth);
-            borderStyleCombo.setSelectedItem(currentBorderStyle);
-            radiusSlider.setValue(currentBorderRadius);
-            radiusLabel.setText(currentBorderRadius + " px");
-            shadowCombo.setSelectedItem(currentShadowPreset);
-        } finally {
-            updatingUi = false;
-        }
-
-        revalidate();
-        repaint();
+        };
     }
 
     private void parseInlineStyle(Element elem) {
+        if (canvasPanel == null) return;
         String style = canvasPanel.getElementStyle(elem).toLowerCase();
 
-        // Background color
         if (style.contains("background-color:")) {
             String hex = extractCssValue(style, "background-color:");
             Color c = parseHex(hex);
             if (c != null) currentFillColor = c;
         }
 
-        // Border width & color
         if (style.contains("border:")) {
             String bVal = extractCssValue(style, "border:");
             String[] parts = bVal.split("\\s+");
@@ -700,13 +1219,11 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
             }
         }
 
-        // Border radius
         if (style.contains("border-radius:")) {
             String rVal = extractCssValue(style, "border-radius:");
             try { currentBorderRadius = Integer.parseInt(rVal.replace("px", "").trim()); } catch (Exception ignored) {}
         }
 
-        // Box shadow preset detection
         if (style.contains("box-shadow:")) {
             if (style.contains("0 8px 24px")) currentShadowPreset = "elevation";
             else if (style.contains("0 0 14px")) currentShadowPreset = "glow";
@@ -736,108 +1253,66 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
         return null;
     }
 
-    public void showEmptyState() {
-        this.currentElement = null;
-        Container parent = emptyStatePanel.getParent();
-        if (parent != null && parent.getLayout() instanceof CardLayout cl) {
-            cl.show(parent, "EMPTY");
-        }
-    }
-
-    private void setAlignment(String align) {
-        this.currentAlign = align;
-        if (currentElement != null) {
-            canvasPanel.alignCardShapeElement(currentElement, align);
-        }
-    }
+    // =========================================================================
+    // UI COMPONENT FACTORIES & STYLING
+    // =========================================================================
 
     private JPanel createSectionCard(String title) {
         JPanel card = new JPanel();
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-        card.setOpaque(true);
         card.setBackground(Color.WHITE);
         card.setBorder(new CompoundBorder(
                 new LineBorder(new Color(226, 232, 240), 1, true),
                 new EmptyBorder(10, 12, 10, 12)
         ));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
         card.setAlignmentX(Component.LEFT_ALIGNMENT);
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 400));
 
-        JLabel titleLbl = new JLabel(title);
-        titleLbl.setFont(new Font("Segoe UI", Font.BOLD, 10));
-        titleLbl.setForeground(new Color(100, 116, 139));
-        titleLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
-        card.add(titleLbl);
+        JLabel tLbl = new JLabel(title);
+        tLbl.setFont(new Font("Segoe UI", Font.BOLD, 10));
+        tLbl.setForeground(new Color(100, 116, 139));
+        tLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+        card.add(tLbl);
         card.add(Box.createVerticalStrut(8));
 
         return card;
     }
 
-    private JButton createPaletteButton(String key, CardShapeCustomizerDialog.ThemePalette pal) {
-        JButton btn = new JButton() {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                int w = getWidth();
-                int h = getHeight();
-
-                // Background
-                g2.setColor(pal.bg());
-                g2.fillRoundRect(1, 1, w - 2, h - 2, 6, 6);
-
-                // Border
-                boolean isSel = key.equalsIgnoreCase(selectedThemeKey);
-                g2.setColor(isSel ? new Color(14, 165, 233) : pal.border());
-                g2.setStroke(new BasicStroke(isSel ? 2.2f : 1.0f));
-                g2.drawRoundRect(1, 1, w - 2, h - 2, 6, 6);
-
-                // Accent Stripe
-                g2.setColor(pal.primary());
-                g2.fillRoundRect(3, 3, 5, h - 6, 3, 3);
-
-                // Mini text preview
-                g2.setFont(new Font("Segoe UI", Font.BOLD, 8));
-                g2.setColor(pal.text());
-                g2.drawString("Aa", 12, h / 2 + 3);
-
-                g2.dispose();
-            }
-        };
-        btn.setPreferredSize(new Dimension(72, 32));
-        btn.setContentAreaFilled(false);
-        btn.setBorder(BorderFactory.createEmptyBorder());
+    private JButton createPaletteButton(String themeKey, CardShapeCustomizerDialog.ThemePalette pal) {
+        JButton btn = new JButton(themeKey.substring(0, 1).toUpperCase() + themeKey.substring(1).toLowerCase());
+        btn.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+        btn.setBackground(pal.bg());
+        btn.setForeground(pal.primary());
         btn.setFocusPainted(false);
+        btn.setBorder(new CompoundBorder(
+                new LineBorder(pal.border(), 2, true),
+                new EmptyBorder(4, 3, 4, 3)
+        ));
+        btn.setToolTipText(pal.name() + " Style Palette");
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        btn.setToolTipText(pal.name());
         btn.addActionListener(e -> {
-            selectedThemeKey = key;
+            selectedThemeKey = themeKey.toUpperCase();
             currentFillColor = pal.bg();
             currentBorderColor = pal.border();
             fillSwatchPreview.repaint();
             borderSwatchPreview.repaint();
-            if (currentElement != null) {
-                canvasPanel.applyActiveCardShapeTheme(key);
-            }
-            repaint();
+            triggerDebouncedApply();
         });
         return btn;
     }
 
-    private JPanel createColorSwatch(String tooltip, java.util.function.Consumer<Color> onPick) {
+    private JPanel createColorSwatch(String tooltip, java.util.function.Consumer<Color> onColorChosen) {
         JPanel swatch = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                int w = getWidth();
-                int h = getHeight();
-
-                g2.setColor(tooltip.contains("Fill") ? currentFillColor : currentBorderColor);
-                g2.fillRoundRect(2, 2, w - 4, h - 4, 6, 6);
+                Color c = tooltip.contains("Background") ? currentFillColor : currentBorderColor;
+                g2.setColor(c != null ? c : Color.WHITE);
+                g2.fillRoundRect(2, 2, getWidth() - 4, getHeight() - 4, 6, 6);
                 g2.setColor(new Color(203, 213, 225));
-                g2.setStroke(new BasicStroke(1.2f));
-                g2.drawRoundRect(2, 2, w - 4, h - 4, 6, 6);
+                g2.drawRoundRect(2, 2, getWidth() - 5, getHeight() - 5, 6, 6);
                 g2.dispose();
             }
         };
@@ -847,10 +1322,10 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
         swatch.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-                Color cur = tooltip.contains("Fill") ? currentFillColor : currentBorderColor;
+                Color cur = tooltip.contains("Background") ? currentFillColor : currentBorderColor;
                 Color chosen = ModernColorPickerDialog.showDialog(ShapeFormatSidePanel.this, tooltip, cur);
                 if (chosen != null) {
-                    onPick.accept(chosen);
+                    onColorChosen.accept(chosen);
                     swatch.repaint();
                 }
             }
@@ -858,36 +1333,36 @@ public class ShapeFormatSidePanel extends JPanel implements ThemeManager.ThemeCh
         return swatch;
     }
 
-    private JButton createAlignButton(String text, VectorIcons.Type iconType, Runnable onClick) {
-        JButton btn = new JButton(VectorIcons.create(iconType, 13, new Color(71, 85, 105)));
-        btn.setPreferredSize(new Dimension(36, 26));
-        btn.setBackground(new Color(241, 245, 249));
-        btn.setBorder(new LineBorder(new Color(226, 232, 240), 1, true));
+    private JButton createAlignButton(String text, VectorIcons.Type icon, Runnable action) {
+        JButton btn = new JButton(VectorIcons.create(icon, 12, new Color(71, 85, 105)));
+        btn.setPreferredSize(new Dimension(30, 26));
+        btn.setBackground(Color.WHITE);
         btn.setFocusPainted(false);
-        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.setToolTipText("Align " + text);
-        btn.addActionListener(e -> onClick.run());
+        btn.setBorder(new CompoundBorder(
+                new LineBorder(new Color(226, 232, 240), 1, true),
+                new EmptyBorder(2, 2, 2, 2)
+        ));
+        btn.addActionListener(e -> action.run());
         return btn;
     }
 
     private void styleActionButton(JButton btn, Color bg, Color fg) {
         btn.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        btn.setForeground(fg);
         btn.setBackground(bg);
-        btn.setBorder(new CompoundBorder(
-                new LineBorder(new Color(226, 232, 240), 1, true),
-                new EmptyBorder(5, 10, 5, 10)
-        ));
+        btn.setForeground(fg);
         btn.setFocusPainted(false);
+        btn.setBorder(new CompoundBorder(
+                new LineBorder(bg.darker(), 1, true),
+                new EmptyBorder(5, 8, 5, 8)
+        ));
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
     }
 
     @Override
     public void onThemeChanged(ThemeManager.Theme newTheme) {
-        boolean dark = ThemeManager.isDark();
-        setBackground(dark ? new Color(15, 23, 42) : new Color(248, 250, 252));
-        setBorder(BorderFactory.createMatteBorder(0, 1, 0, 0, dark ? new Color(51, 65, 85) : new Color(226, 232, 240)));
-        headerTitleLabel.setForeground(dark ? new Color(248, 250, 252) : new Color(15, 23, 42));
+        setBackground(newTheme.isDark() ? new Color(15, 23, 42) : new Color(248, 250, 252));
+        revalidate();
         repaint();
     }
 }

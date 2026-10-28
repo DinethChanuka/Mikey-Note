@@ -24,7 +24,7 @@ import java.util.function.Consumer;
  */
 public class AiSidePanel extends JPanel {
 
-    private static final int PANEL_MIN_W = 360;
+    private static final int PANEL_MIN_W = 280;
     private static final int PANEL_MAX_W = 750;
 
     public record AiService(String id, String name, VectorIcons.Type iconType, Color accent, String url) {}
@@ -79,7 +79,7 @@ public class AiSidePanel extends JPanel {
                 new EmptyBorder(0, 0, 0, 0)
         ));
         setPreferredSize(new Dimension(440, 640));
-        setMinimumSize(new Dimension(PANEL_MIN_W, 200));
+        setMinimumSize(new Dimension(PANEL_MIN_W, 160));
 
         buildTabBar();
         buildContent();
@@ -95,6 +95,15 @@ public class AiSidePanel extends JPanel {
         }
         selectTab(defaultTab);
         ThemeManager.addListener(t -> applyTheme(t));
+    }
+
+    private JSplitPane findAncestorSplitPane() {
+        Container p = getParent();
+        while (p != null) {
+            if (p instanceof JSplitPane sp) return sp;
+            p = p.getParent();
+        }
+        return null;
     }
 
     public void setInsertHtmlCallback(Consumer<String> callback) {
@@ -139,13 +148,15 @@ public class AiSidePanel extends JPanel {
         widthToggleBtn.setFont(new Font("Segoe UI", Font.PLAIN, 10));
         widthToggleBtn.setFocusPainted(false);
         widthToggleBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        widthToggleBtn.setToolTipText("Toggle between standard (440px) and wide (580px) side panel");
+        widthToggleBtn.setToolTipText("Toggle between standard (400px) and wide (540px) side panel");
         widthToggleBtn.addActionListener(e -> {
             int currentW = getWidth();
-            int newW = (currentW < 500) ? 580 : 440;
+            int newW = (currentW < 460) ? 540 : 380;
             setPreferredSize(new Dimension(newW, getHeight()));
-            Container parent = getParent();
-            if (parent instanceof JSplitPane sp) {
+            JSplitPane sp = findAncestorSplitPane();
+            if (sp != null) {
+                int maxAllowed = Math.max(PANEL_MIN_W, (int) (sp.getWidth() * 0.45));
+                newW = Math.min(newW, maxAllowed);
                 sp.setDividerLocation(sp.getWidth() - newW);
             }
             revalidate();
@@ -814,6 +825,12 @@ public class AiSidePanel extends JPanel {
                 int delta = resizingStartX - e.getXOnScreen();
                 int newW = Math.max(PANEL_MIN_W, Math.min(PANEL_MAX_W, panelStartW + delta));
                 setPreferredSize(new Dimension(newW, getHeight()));
+                JSplitPane sp = findAncestorSplitPane();
+                if (sp != null) {
+                    int maxAllowed = Math.max(PANEL_MIN_W, (int) (sp.getWidth() * 0.48));
+                    newW = Math.min(newW, maxAllowed);
+                    sp.setDividerLocation(sp.getWidth() - newW);
+                }
                 revalidate();
             }
         });

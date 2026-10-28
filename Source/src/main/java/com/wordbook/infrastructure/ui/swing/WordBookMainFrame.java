@@ -45,6 +45,7 @@ public class WordBookMainFrame extends JFrame implements RibbonPanel.DocumentAct
     private LessonSidebarPanel sidebarPanel;
     private RibbonPanel ribbonPanel;
     private DocumentCanvasPanel canvasPanel;
+    private JScrollPane canvasScroll;
     private CardLayout centerCardLayout;
     private JPanel centerContainer;
     private JPanel emptyStatePanel;
@@ -53,6 +54,7 @@ public class WordBookMainFrame extends JFrame implements RibbonPanel.DocumentAct
     private JPanel rightDeckPanel;
     private String activeRightPanel = null;
     private JSplitPane rightSplit;
+    private JSplitPane splitPane;
     private boolean aiPanelVisible = false;
     private boolean shapeFormatVisible = false;
 
@@ -171,12 +173,25 @@ public class WordBookMainFrame extends JFrame implements RibbonPanel.DocumentAct
                 WordBookMainFrame.this.hideShapeFormatPanel();
             }
         });
-        JScrollPane canvasScroll = new JScrollPane(canvasPanel);
+        canvasScroll = new JScrollPane(canvasPanel);
         canvasScroll.setBorder(null);
-        canvasScroll.getVerticalScrollBar().setUnitIncrement(20);
-        canvasScroll.setMinimumSize(new Dimension(500, 200));
-        canvasScroll.getViewport().setScrollMode(JViewport.SIMPLE_SCROLL_MODE);
-        canvasScroll.getViewport().addChangeListener(e -> canvasPanel.repaint());
+        canvasScroll.getVerticalScrollBar().setUnitIncrement(24);
+        canvasScroll.getHorizontalScrollBar().setUnitIncrement(24);
+        canvasScroll.setMinimumSize(new Dimension(340, 160));
+        canvasScroll.getViewport().setScrollMode(JViewport.BLIT_SCROLL_MODE);
+
+        // Smooth Ctrl/Cmd + Mouse Wheel Zoom
+        canvasScroll.addMouseWheelListener(e -> {
+            if (e.isControlDown() || e.isMetaDown()) {
+                e.consume();
+                int rotation = e.getWheelRotation();
+                if (zoomSlider != null) {
+                    int step = 5;
+                    int newVal = Math.max(50, Math.min(200, zoomSlider.getValue() - rotation * step));
+                    zoomSlider.setValue(newVal);
+                }
+            }
+        });
 
         centerCardLayout = new CardLayout();
         centerContainer = new JPanel(centerCardLayout);
@@ -187,13 +202,13 @@ public class WordBookMainFrame extends JFrame implements RibbonPanel.DocumentAct
         // AI Side Panel
         aiSidePanel = new AiSidePanel(this::insertHtml);
         aiSidePanel.setVisible(true);
-        aiSidePanel.setMinimumSize(new Dimension(340, 200));
+        aiSidePanel.setMinimumSize(new Dimension(280, 160));
         aiSidePanel.setCloseCallback(this::toggleAiPanel);
 
         // Word-Style Shape & Picture Format Side Panel
         shapeFormatSidePanel = new ShapeFormatSidePanel(canvasPanel);
         shapeFormatSidePanel.setVisible(true);
-        shapeFormatSidePanel.setMinimumSize(new Dimension(340, 200));
+        shapeFormatSidePanel.setMinimumSize(new Dimension(280, 160));
         shapeFormatSidePanel.setCloseCallback(this::hideShapeFormatPanel);
 
         // Right Deck Container holding AI Panel and Shape Format Panel
@@ -201,18 +216,21 @@ public class WordBookMainFrame extends JFrame implements RibbonPanel.DocumentAct
         rightDeckPanel.add(aiSidePanel, "AI");
         rightDeckPanel.add(shapeFormatSidePanel, "SHAPE_FORMAT");
         rightDeckPanel.setVisible(false);
-        rightDeckPanel.setMinimumSize(new Dimension(320, 200));
+        rightDeckPanel.setMinimumSize(new Dimension(280, 160));
 
         // Right split: center container (canvas or empty state) | Right Deck
         rightSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, centerContainer, rightDeckPanel);
+        rightSplit.setContinuousLayout(true);
         rightSplit.setResizeWeight(1.0);
         rightSplit.setDividerSize(0);
         rightSplit.setBorder(null);
 
         // Left split: lessons sidebar | right split
-        sidebarPanel.setMinimumSize(new Dimension(220, 200));
-        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidebarPanel, rightSplit);
-        splitPane.setDividerLocation(260);
+        sidebarPanel.setMinimumSize(new Dimension(190, 160));
+        splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidebarPanel, rightSplit);
+        splitPane.setContinuousLayout(true);
+        splitPane.setDividerLocation(250);
+        splitPane.setResizeWeight(0.0);
         splitPane.setDividerSize(5);
         studioPanel.add(splitPane, BorderLayout.CENTER);
 
@@ -443,8 +461,9 @@ public class WordBookMainFrame extends JFrame implements RibbonPanel.DocumentAct
             activeRightPanel = "AI";
             rightSplit.setDividerSize(5);
             int totalW = rightSplit.getWidth();
-            if (totalW <= 0) totalW = getWidth() - 260;
-            int targetAiW = Math.min(480, Math.max(400, (int) (totalW * 0.35)));
+            if (totalW <= 0) totalW = getWidth() - 250;
+            int maxAllowedAiW = Math.max(280, (int) (totalW * 0.42));
+            int targetAiW = Math.min(maxAllowedAiW, Math.max(280, Math.min(400, (int) (totalW * 0.33))));
             rightSplit.setDividerLocation(totalW - targetAiW);
         }
         rightSplit.revalidate();
@@ -462,8 +481,9 @@ public class WordBookMainFrame extends JFrame implements RibbonPanel.DocumentAct
         aiPanelVisible = false;
         rightSplit.setDividerSize(5);
         int totalW = rightSplit.getWidth();
-        if (totalW <= 0) totalW = getWidth() - 260;
-        int targetW = Math.min(420, Math.max(360, (int) (totalW * 0.32)));
+        if (totalW <= 0) totalW = getWidth() - 250;
+        int maxAllowedFormatW = Math.max(280, (int) (totalW * 0.42));
+        int targetW = Math.min(maxAllowedFormatW, Math.max(280, Math.min(380, (int) (totalW * 0.32))));
         rightSplit.setDividerLocation(totalW - targetW);
         rightSplit.revalidate();
         rightSplit.repaint();
@@ -1572,5 +1592,21 @@ public class WordBookMainFrame extends JFrame implements RibbonPanel.DocumentAct
     @Override
     public void deleteSelectedCardShape() {
         canvasPanel.deleteSelectedCardShape();
+    }
+
+    public JScrollPane getCanvasScroll() {
+        return canvasScroll;
+    }
+
+    public JSplitPane getSplitPane() {
+        return splitPane;
+    }
+
+    public JSplitPane getRightSplit() {
+        return rightSplit;
+    }
+
+    public JSlider getZoomSlider() {
+        return zoomSlider;
     }
 }

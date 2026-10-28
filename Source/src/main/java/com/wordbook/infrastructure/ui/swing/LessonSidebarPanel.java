@@ -31,6 +31,7 @@ public class LessonSidebarPanel extends JPanel {
     private String currentBookId;
     private String activeLessonId;
     private String renamingLessonId = null;
+    private List<LessonDto> cachedLessons = List.of();
     private JLabel bookTitleLabel;
     private JTextField filterField;
     private JPanel lessonsListPanel;
@@ -46,7 +47,7 @@ public class LessonSidebarPanel extends JPanel {
         this.onBackToShelf = onBackToShelf;
 
         setPreferredSize(new Dimension(264, 600));
-        setMinimumSize(new Dimension(220, 300));
+        setMinimumSize(new Dimension(190, 160));
         setLayout(new BorderLayout());
 
         // Header
@@ -100,7 +101,7 @@ public class LessonSidebarPanel extends JPanel {
                 BorderFactory.createLineBorder(new Color(147, 197, 253), 1, true),
                 new EmptyBorder(4, 6, 4, 6)
         ));
-        inlineCreatorPanel.setPreferredSize(new Dimension(240, 36));
+        inlineCreatorPanel.setPreferredSize(new Dimension(180, 36));
         inlineCreatorPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
         inlineCreatorPanel.setVisible(false);
 
@@ -168,9 +169,9 @@ public class LessonSidebarPanel extends JPanel {
         ));
 
         filterField.getDocument().addDocumentListener(new DocumentListener() {
-            @Override public void insertUpdate(DocumentEvent e) { refreshLessons(); }
-            @Override public void removeUpdate(DocumentEvent e) { refreshLessons(); }
-            @Override public void changedUpdate(DocumentEvent e) { refreshLessons(); }
+            @Override public void insertUpdate(DocumentEvent e) { applyFilter(); }
+            @Override public void removeUpdate(DocumentEvent e) { applyFilter(); }
+            @Override public void changedUpdate(DocumentEvent e) { applyFilter(); }
         });
         searchContainer.add(filterField, BorderLayout.CENTER);
 
@@ -210,15 +211,21 @@ public class LessonSidebarPanel extends JPanel {
 
     public void refreshLessons() {
         if (currentBookId == null) return;
+        try {
+            BookWithLessonsDto bookData = bookService.getBookWithLessons(currentBookId);
+            bookTitleLabel.setText(bookData.title());
+            this.cachedLessons = bookData.lessons();
+        } catch (Exception ignored) {}
+        applyFilter();
+    }
+
+    private void applyFilter() {
+        if (currentBookId == null) return;
         lessonsListPanel.removeAll();
 
-        BookWithLessonsDto bookData = bookService.getBookWithLessons(currentBookId);
-        bookTitleLabel.setText(bookData.title());
-
         String query = filterField != null ? filterField.getText().trim().toLowerCase() : "";
-        List<LessonDto> lessons = bookData.lessons();
 
-        for (LessonDto l : lessons) {
+        for (LessonDto l : cachedLessons) {
             if (!query.isEmpty() && !l.title().toLowerCase().contains(query)) {
                 continue;
             }
@@ -244,7 +251,7 @@ public class LessonSidebarPanel extends JPanel {
             JPanel editItem = new JPanel(new BorderLayout(6, 0));
             editItem.setOpaque(false);
             editItem.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
-            editItem.setPreferredSize(new Dimension(240, 44));
+            editItem.setPreferredSize(new Dimension(180, 44));
             editItem.setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createLineBorder(new Color(59, 130, 246), 1, true),
                     new EmptyBorder(4, 8, 4, 6)
@@ -320,6 +327,7 @@ public class LessonSidebarPanel extends JPanel {
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
                 int w = getWidth();
                 int h = getHeight();
@@ -349,7 +357,7 @@ public class LessonSidebarPanel extends JPanel {
 
         item.setOpaque(false);
         item.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
-        item.setPreferredSize(new Dimension(240, 44));
+        item.setPreferredSize(new Dimension(180, 44));
         item.setBorder(new EmptyBorder(4, 12, 4, 8));
         item.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
@@ -367,6 +375,7 @@ public class LessonSidebarPanel extends JPanel {
         JLabel titleLbl = new JLabel(lesson.title());
         titleLbl.setFont(new Font("Segoe UI", isSelected ? Font.BOLD : Font.PLAIN, 13));
         titleLbl.setForeground(isSelected ? theme.accent() : theme.textPrimary());
+        titleLbl.setToolTipText(lesson.title());
 
         // Live Word / Char count badge
         int words = lesson.wordCount();

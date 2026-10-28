@@ -40,6 +40,7 @@ public class ModernComboBox<T> extends JComboBox<T> implements ThemeManager.Them
                 JLabel lbl = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
                 lbl.setBorder(new EmptyBorder(5, 8, 5, 8));
                 lbl.setFont(new Font("SansSerif", Font.PLAIN, 12));
+                lbl.putClientProperty(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
                 if (isSelected) {
                     lbl.setBackground(ThemeManager.getAccent());

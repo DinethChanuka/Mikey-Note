@@ -56,6 +56,9 @@ public class WordBookTestSuite {
         testImageFilterAndCanvasFitting();
         testCardShapeRibbonAndCustomizer();
         testShapeFormatSidePanelAndPaginationStability();
+        testZeroAllocationWordCountAndTypographyResponsiveness();
+        testBlitScrollingAndMouseWheelZoomClamping();
+        testResponsiveBookshelfPanelWrapping();
 
         System.out.println("==================================================");
         System.out.printf("  Results: %d Passed, %d Failed%n", passed, failed);
@@ -2010,6 +2013,147 @@ public class WordBookTestSuite {
             passed++;
         } catch (Throwable t) {
             System.err.println("  ✖ Shape Format Side Panel & Pagination test failed: " + t.getMessage());
+            t.printStackTrace();
+            failed++;
+        }
+    }
+
+    private static void testZeroAllocationWordCountAndTypographyResponsiveness() {
+        System.out.println("\n[Test] Zero-Allocation Word Counter & Typography Responsiveness");
+        try {
+            assertEquals(0, com.wordbook.infrastructure.ui.swing.DocumentCanvasPanel.countWords(null), "Null string has 0 words");
+            assertEquals(0, com.wordbook.infrastructure.ui.swing.DocumentCanvasPanel.countWords(""), "Empty string has 0 words");
+            assertEquals(0, com.wordbook.infrastructure.ui.swing.DocumentCanvasPanel.countWords("   \t  \n  "), "Whitespace-only string has 0 words");
+            assertEquals(2, com.wordbook.infrastructure.ui.swing.DocumentCanvasPanel.countWords("Hello World"), "Two words counted accurately");
+            assertEquals(9, com.wordbook.infrastructure.ui.swing.DocumentCanvasPanel.countWords("   The   quick   brown \n fox \t jumps   over  the  lazy \n dog.  "), "Multi-whitespace string counted accurately");
+
+            // Performance check: zero-allocation scanner over 500-word paragraph
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < 50; i++) {
+                sb.append("Word ").append(i).append(" is part of a high-speed responsiveness test. \n");
+            }
+            String sample = sb.toString();
+            long t0 = System.nanoTime();
+            int total = 0;
+            for (int i = 0; i < 5000; i++) {
+                total += com.wordbook.infrastructure.ui.swing.DocumentCanvasPanel.countWords(sample);
+            }
+            long elapsedMs = (System.nanoTime() - t0) / 1_000_000;
+            assertTrue(total > 0, "Accumulated words > 0");
+            assertTrue(elapsedMs < 200, "5,000 word count passes complete in under 200ms: took " + elapsedMs + "ms");
+
+            // DocumentCanvasPanel docListener typing simulation
+            com.wordbook.infrastructure.ui.swing.DocumentCanvasPanel canvas =
+                    new com.wordbook.infrastructure.ui.swing.DocumentCanvasPanel((html, words, chars) -> {});
+            canvas.loadHtml("<p>Initial text</p>");
+            canvas.getTextPane().setText("<p>Fast typed paragraph with smooth caret updates</p>");
+            assertTrue(canvas.getWordCount() > 0, "Word count is positive after typing");
+
+            System.out.println("  ✔ Zero-Allocation Word Counter & Typography Responsiveness tests passed.");
+            passed++;
+        } catch (Throwable t) {
+            System.err.println("  ✖ Zero-Allocation Word Counter test failed: " + t.getMessage());
+            t.printStackTrace();
+            failed++;
+        }
+    }
+
+    private static void testBlitScrollingAndMouseWheelZoomClamping() {
+        System.out.println("\n[Test] Hardware Blit Scrolling & Smooth Zoom Clamping");
+        try {
+            var connMgr = new com.wordbook.infrastructure.persistence.sqlite.SqliteConnectionManager(":memory:");
+            new com.wordbook.infrastructure.persistence.sqlite.SqliteSchemaManager(connMgr).initializeSchema();
+            var bRepo = new com.wordbook.infrastructure.persistence.sqlite.SqliteBookRepository(connMgr);
+            var lRepo = new com.wordbook.infrastructure.persistence.sqlite.SqliteLessonRepository(connMgr);
+            var uow = new com.wordbook.infrastructure.persistence.sqlite.SqliteUnitOfWork(connMgr);
+            var bSvc = new com.wordbook.core.application.service.BookService(bRepo, lRepo, uow);
+            var lSvc = new com.wordbook.core.application.service.LessonService(bRepo, lRepo);
+            var eSvc = new com.wordbook.core.application.service.ExportService(bRepo, lRepo);
+            var cSvc = new com.wordbook.core.application.service.ChartEngineService();
+            var mSvc = new com.wordbook.core.application.service.MigrationService(bRepo, lRepo, uow, ":memory:");
+
+            com.wordbook.infrastructure.ui.swing.WordBookMainFrame mainFrame =
+                    new com.wordbook.infrastructure.ui.swing.WordBookMainFrame(bSvc, lSvc, eSvc, cSvc, mSvc, ":memory:");
+
+            // 1. Viewport uses BLIT_SCROLL_MODE for hardware acceleration
+            javax.swing.JScrollPane scroll = mainFrame.getCanvasScroll();
+            assertNotNull(scroll, "Canvas scroll pane exists");
+            assertEquals(javax.swing.JViewport.BLIT_SCROLL_MODE, scroll.getViewport().getScrollMode(), "Viewport uses BLIT_SCROLL_MODE");
+
+            // 2. Split panes use continuous layout
+            assertTrue(mainFrame.getSplitPane().isContinuousLayout(), "Left split pane uses continuous layout");
+            assertTrue(mainFrame.getRightSplit().isContinuousLayout(), "Right split pane uses continuous layout");
+
+            // 3. Zoom clamping & zoom level inquiry
+            javax.swing.JSlider slider = mainFrame.getZoomSlider();
+            assertNotNull(slider, "Zoom slider exists");
+            slider.setValue(150);
+            assertEquals(150, slider.getValue(), "Slider set to 150%");
+
+            // Clamping below 50%
+            slider.setValue(30);
+            assertEquals(50, slider.getValue(), "Slider clamped at minimum 50%");
+
+            // Clamping above 200%
+            slider.setValue(250);
+            assertEquals(200, slider.getValue(), "Slider clamped at maximum 200%");
+
+            slider.setValue(100);
+
+            mainFrame.dispose();
+            connMgr.close();
+
+            System.out.println("  ✔ Hardware Blit Scrolling & Smooth Zoom Clamping tests passed.");
+            passed++;
+        } catch (Throwable t) {
+            System.err.println("  ✖ Hardware Blit Scrolling & Zoom test failed: " + t.getMessage());
+            t.printStackTrace();
+            failed++;
+        }
+    }
+
+    private static void testResponsiveBookshelfPanelWrapping() {
+        System.out.println("\n[Test] Responsive Bookshelf Grid Wrapping & Height Scaling");
+        try {
+            var connMgr = new com.wordbook.infrastructure.persistence.sqlite.SqliteConnectionManager(":memory:");
+            new com.wordbook.infrastructure.persistence.sqlite.SqliteSchemaManager(connMgr).initializeSchema();
+            var bRepo = new com.wordbook.infrastructure.persistence.sqlite.SqliteBookRepository(connMgr);
+            var lRepo = new com.wordbook.infrastructure.persistence.sqlite.SqliteLessonRepository(connMgr);
+            var uow = new com.wordbook.infrastructure.persistence.sqlite.SqliteUnitOfWork(connMgr);
+            var bSvc = new com.wordbook.core.application.service.BookService(bRepo, lRepo, uow);
+
+            // Create 5 sample notebooks
+            for (int i = 1; i <= 5; i++) {
+                bSvc.createBook(new com.wordbook.core.application.dto.BookCreateRequest(
+                        "Notebook " + i,
+                        "Description " + i,
+                        "#2563eb|NONE|General"
+                ));
+            }
+
+            com.wordbook.infrastructure.ui.swing.BookshelfPanel shelf =
+                    new com.wordbook.infrastructure.ui.swing.BookshelfPanel(bSvc, id -> {}, () -> {});
+
+            javax.swing.JPanel grid = shelf.getShelfGrid();
+            assertNotNull(grid, "Shelf grid exists");
+
+            // At narrow width (e.g. 400px), cards must wrap into multiple rows
+            grid.setSize(400, 300);
+            int narrowHeight = grid.getPreferredSize().height;
+
+            // At wide width (e.g. 1400px), cards fit across a single row
+            grid.setSize(1400, 300);
+            int wideHeight = grid.getPreferredSize().height;
+
+            assertTrue(narrowHeight > wideHeight,
+                    "Narrow viewport height (" + narrowHeight + "px) should be taller than wide viewport height (" + wideHeight + "px) due to row wrapping");
+
+            connMgr.close();
+
+            System.out.println("  ✔ Responsive Bookshelf Grid Wrapping & Height Scaling tests passed.");
+            passed++;
+        } catch (Throwable t) {
+            System.err.println("  ✖ Responsive Bookshelf Grid test failed: " + t.getMessage());
             t.printStackTrace();
             failed++;
         }

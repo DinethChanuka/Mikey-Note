@@ -77,13 +77,14 @@ public class BookshelfPanel extends JPanel implements ThemeManager.ThemeChangeLi
         add(topBar, BorderLayout.NORTH);
 
         // Center Scrollable Shelf Grid
-        shelfGrid = new JPanel(new FlowLayout(FlowLayout.LEFT, 26, 26));
+        shelfGrid = new ResponsiveShelfPanel(new FlowLayout(FlowLayout.LEFT, 24, 24));
         shelfGrid.setBackground(ThemeManager.getShelfBackground());
         shelfGrid.setBorder(new EmptyBorder(24, 28, 24, 28));
 
         scrollPane = new JScrollPane(shelfGrid);
         scrollPane.setBorder(null);
-        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(20);
+        scrollPane.getHorizontalScrollBar().setUnitIncrement(20);
         add(scrollPane, BorderLayout.CENTER);
 
         refreshBooks();
@@ -404,5 +405,82 @@ public class BookshelfPanel extends JPanel implements ThemeManager.ThemeChangeLi
     private static String escapeHtml(String s) {
         if (s == null) return "";
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+    }
+
+    public JPanel getShelfGrid() {
+        return shelfGrid;
+    }
+
+    private static class ResponsiveShelfPanel extends JPanel implements Scrollable {
+        public ResponsiveShelfPanel(LayoutManager layout) {
+            super(layout);
+        }
+
+        @Override
+        public Dimension getPreferredSize() {
+            int targetWidth = getWidth();
+            if (targetWidth <= 0 && getParent() instanceof JViewport vp) {
+                targetWidth = vp.getWidth();
+            }
+            if (targetWidth <= 0) {
+                return super.getPreferredSize();
+            }
+
+            Insets insets = getInsets();
+            int hgap = 24;
+            int vgap = 24;
+            LayoutManager lm = getLayout();
+            if (lm instanceof FlowLayout fl) {
+                hgap = fl.getHgap();
+                vgap = fl.getVgap();
+            }
+
+            int maxWidth = targetWidth - insets.left - insets.right;
+            if (maxWidth <= 0) maxWidth = 100;
+
+            int x = 0;
+            int y = insets.top;
+            int rowHeight = 0;
+
+            for (Component comp : getComponents()) {
+                if (!comp.isVisible()) continue;
+                Dimension d = comp.getPreferredSize();
+                if (x > 0 && x + d.width > maxWidth) {
+                    y += rowHeight + vgap;
+                    x = 0;
+                    rowHeight = 0;
+                }
+                x += d.width + hgap;
+                rowHeight = Math.max(rowHeight, d.height);
+            }
+            y += rowHeight + insets.bottom;
+
+            return new Dimension(targetWidth, Math.max(200, y));
+        }
+
+        @Override
+        public Dimension getPreferredScrollableViewportSize() {
+            return getPreferredSize();
+        }
+
+        @Override
+        public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) {
+            return 20;
+        }
+
+        @Override
+        public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
+            return 100;
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportWidth() {
+            return true;
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportHeight() {
+            return false;
+        }
     }
 }

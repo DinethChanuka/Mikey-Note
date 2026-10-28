@@ -46,7 +46,7 @@ public class LessonSidebarPanel extends JPanel {
         this.onBackToShelf = onBackToShelf;
 
         setPreferredSize(new Dimension(264, 600));
-        setMinimumSize(new Dimension(220, 300));
+        setMinimumSize(new Dimension(190, 160));
         setLayout(new BorderLayout());
 
         // Header
@@ -100,7 +100,7 @@ public class LessonSidebarPanel extends JPanel {
                 BorderFactory.createLineBorder(new Color(147, 197, 253), 1, true),
                 new EmptyBorder(4, 6, 4, 6)
         ));
-        inlineCreatorPanel.setPreferredSize(new Dimension(240, 36));
+        inlineCreatorPanel.setPreferredSize(new Dimension(180, 36));
         inlineCreatorPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
         inlineCreatorPanel.setVisible(false);
 
@@ -244,7 +244,7 @@ public class LessonSidebarPanel extends JPanel {
             JPanel editItem = new JPanel(new BorderLayout(6, 0));
             editItem.setOpaque(false);
             editItem.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
-            editItem.setPreferredSize(new Dimension(240, 44));
+            editItem.setPreferredSize(new Dimension(180, 44));
             editItem.setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createLineBorder(new Color(59, 130, 246), 1, true),
                     new EmptyBorder(4, 8, 4, 6)
@@ -349,7 +349,7 @@ public class LessonSidebarPanel extends JPanel {
 
         item.setOpaque(false);
         item.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
-        item.setPreferredSize(new Dimension(240, 44));
+        item.setPreferredSize(new Dimension(180, 44));
         item.setBorder(new EmptyBorder(4, 12, 4, 8));
         item.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 

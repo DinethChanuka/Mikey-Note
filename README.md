@@ -197,16 +197,15 @@ sequenceDiagram
 - **Insert Tools**: Tables, 2D/3D Charts, KPI Cards, Shapes, Process Sequences, Callout Boxes, Images, Online Videos, Citations, Page Breaks, and Smart Lorem Ipsum shorthand (`lorem50`, `lorem100`).
 - **Global Undo/Redo**: 200-step deep memory undo stack with state snapshots and visual ribbon status indicators.
 
-### 2. Contextual Shape & Card Format Side Panel
-- **Right-Docked Inspector**: Dynamically displays when an object (card, shape, image, chart) is selected in the canvas.
-- **Color Themes & Palettes**: Quick preset themes including Corporate Blue, Emerald Mint, Violet Purple, Amber Gold, Crimson Rose, Dark Slate, and Clean Minimal.
-- **Styling Granularity**:
-  - Fill Color Swatch & Live Transparency Alpha Slider (0% - 100%).
-  - Line & Border Style (Solid, Dashed, Dotted), Border Width Spinner, and Corner Radius Slider (0px - 40px).
-  - Shadow & Elevation Presets (Flat, Subtle, Raised, Elevated, Floating).
-  - Dimension Scaling (Width, Height, Lock Aspect Ratio).
-  - Live Metric Editing: Directly update card KPI titles, large metric numbers, and delta indicators.
-  - Action Suite: Duplicate, Re-edit in modal, or Delete selected object.
+### 2. Contextual Shape, Picture & Object Format Side Panel
+- **Intelligent Right-Docked Inspector**: Dynamically inspects the selected object and surfaces **only** the properties relevant to that specific object type:
+  - **🖼️ Pictures / Images**: Quick filter presets (Original, B&W Grayscale, Sepia, Vivid, High Contrast, Inverted), aspect-ratio scaling (Lock ratio, Reset 100%, Fit page margin 560px, +/- 10% steps), photo borders, corner rounding (0 - 40px), drop shadows, and alignment.
+  - **📊 Charts & Graphs**: Instant visualization switcher (Bar, Line, Area, Pie, Donut, KPI), 7 theme color palettes (Corporate Blue, Emerald, Violet, Amber, Crimson, Slate, Minimal), data label/legend toggles, and direct access to the live data series editor.
+  - **💳 Metric / KPI Cards**: Topic/title, prominent large metric value, subtitle/trend badge, 8 color themes, background fill color, border styles, corner radius, and elevation depth.
+  - **🔷 Shapes & Callouts**: Callout box presets (Info, Tip, Warning, Danger, Quote), accent line color, fill color, header and body text, and border styling.
+  - **📑 Tables**: Preset table styles (Corporate Blue, Modern Slate, Emerald Green, Striped Zebra, Minimalist), quick row/column insertions and deletions, and cell coloring.
+- **Responsive Width Toggle**: Standard (360px) and expanded (440px) dock width with smooth vertical scrolling.
+- **Empty State Guidance**: Clean placeholder guide when no object is selected.
 
 ### 3. Multi-Page Word-Style Paged Canvas
 - **Paper Geometry**: Supports A4 (595x842 pt), US Letter (612x792 pt), and US Legal (612x1008 pt).
@@ -423,11 +422,23 @@ CREATE INDEX IF NOT EXISTS idx_books_updated ON books(updated_at DESC);
 
 ### Quick Start (One Command)
 
-From the project root:
+#### On Windows (Command Prompt or PowerShell):
+```cmd
+:: From repository root (or inside Source):
+run.bat
+```
+Or via PowerShell:
+```powershell
+.\run.ps1
+```
 
+#### On macOS & Linux (Bash / Zsh):
 ```bash
-cd Source
+# From repository root:
 ./run.sh
+
+# Or from Source/:
+cd Source && ./run.sh
 ```
 
 This single command will:
@@ -440,13 +451,15 @@ This single command will:
 
 ### Command Line Options
 
-You can launch Mikey Note with various runtime flags:
+You can launch Mikey Note with various runtime flags on both Windows and Unix:
 
 ```bash
-cd Source
+# Windows
+run.bat [options]
+# macOS / Linux
 ./run.sh [options]
 # or directly via JAR:
-java -jar wordbook.jar [options]
+java -jar Source/wordbook.jar [options]
 ```
 
 | Flag | Parameter | Description | Default |

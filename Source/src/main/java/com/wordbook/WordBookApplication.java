@@ -65,6 +65,9 @@ public class WordBookApplication {
 
         printBanner(port, dbPath);
 
+        System.setProperty("awt.useSystemAAFontSettings", "on");
+        System.setProperty("swing.aatext", "true");
+
         // 1. If running with GUI, display Mikey Note Dedicated Startup Loading JFrame
         com.wordbook.infrastructure.ui.swing.NoteDownLoadingFrame loadingFrame = null;
         if (!headless && !GraphicsEnvironment.isHeadless()) {
@@ -238,15 +241,25 @@ public class WordBookApplication {
     }
 
     private static Path resolveStaticDirectory() {
-        // Try current directory
         Path cur = Paths.get(".").toAbsolutePath().normalize();
+        // 1. Current directory directly
         if (Files.exists(cur.resolve("loadwindow/index.html")) || Files.exists(cur.resolve("index.html"))) {
             return cur;
         }
-        // Try src/main/resources/static or loadwindow if present
+        // 2. Source subdirectory (when launched from workspace root)
+        Path srcDir = cur.resolve("Source");
+        if (Files.exists(srcDir.resolve("loadwindow/index.html")) || Files.exists(srcDir.resolve("index.html"))) {
+            return srcDir;
+        }
+        // 3. Resources directory
         Path res = cur.resolve("src/main/resources");
         if (Files.exists(res.resolve("loadwindow/index.html")) || Files.exists(res.resolve("static/index.html"))) {
             return res;
+        }
+        // 4. Source/src/main/resources
+        Path srcRes = srcDir.resolve("src/main/resources");
+        if (Files.exists(srcRes.resolve("loadwindow/index.html")) || Files.exists(srcRes.resolve("static/index.html"))) {
+            return srcRes;
         }
         return cur;
     }

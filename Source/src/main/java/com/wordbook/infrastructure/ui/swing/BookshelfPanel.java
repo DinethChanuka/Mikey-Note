@@ -77,13 +77,14 @@ public class BookshelfPanel extends JPanel implements ThemeManager.ThemeChangeLi
         add(topBar, BorderLayout.NORTH);
 
         // Center Scrollable Shelf Grid
-        shelfGrid = new JPanel(new FlowLayout(FlowLayout.LEFT, 26, 26));
+        shelfGrid = new ResponsiveShelfPanel(new FlowLayout(FlowLayout.LEFT, 24, 24));
         shelfGrid.setBackground(ThemeManager.getShelfBackground());
         shelfGrid.setBorder(new EmptyBorder(24, 28, 24, 28));
 
         scrollPane = new JScrollPane(shelfGrid);
         scrollPane.setBorder(null);
-        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(20);
+        scrollPane.getHorizontalScrollBar().setUnitIncrement(20);
         add(scrollPane, BorderLayout.CENTER);
 
         refreshBooks();
@@ -404,5 +405,36 @@ public class BookshelfPanel extends JPanel implements ThemeManager.ThemeChangeLi
     private static String escapeHtml(String s) {
         if (s == null) return "";
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+    }
+
+    private static class ResponsiveShelfPanel extends JPanel implements Scrollable {
+        public ResponsiveShelfPanel(LayoutManager layout) {
+            super(layout);
+        }
+
+        @Override
+        public Dimension getPreferredScrollableViewportSize() {
+            return getPreferredSize();
+        }
+
+        @Override
+        public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) {
+            return 20;
+        }
+
+        @Override
+        public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
+            return 100;
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportWidth() {
+            return true;
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportHeight() {
+            return false;
+        }
     }
 }

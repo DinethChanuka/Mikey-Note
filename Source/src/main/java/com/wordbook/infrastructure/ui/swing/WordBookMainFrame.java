@@ -45,6 +45,7 @@ public class WordBookMainFrame extends JFrame implements RibbonPanel.DocumentAct
     private LessonSidebarPanel sidebarPanel;
     private RibbonPanel ribbonPanel;
     private DocumentCanvasPanel canvasPanel;
+    private JScrollPane canvasScroll;
     private CardLayout centerCardLayout;
     private JPanel centerContainer;
     private JPanel emptyStatePanel;
@@ -53,6 +54,7 @@ public class WordBookMainFrame extends JFrame implements RibbonPanel.DocumentAct
     private JPanel rightDeckPanel;
     private String activeRightPanel = null;
     private JSplitPane rightSplit;
+    private JSplitPane splitPane;
     private boolean aiPanelVisible = false;
     private boolean shapeFormatVisible = false;
 
@@ -171,13 +173,25 @@ public class WordBookMainFrame extends JFrame implements RibbonPanel.DocumentAct
                 WordBookMainFrame.this.hideShapeFormatPanel();
             }
         });
-        JScrollPane canvasScroll = new JScrollPane(canvasPanel);
+        canvasScroll = new JScrollPane(canvasPanel);
         canvasScroll.setBorder(null);
-        canvasScroll.getVerticalScrollBar().setUnitIncrement(20);
-        canvasScroll.getHorizontalScrollBar().setUnitIncrement(20);
+        canvasScroll.getVerticalScrollBar().setUnitIncrement(24);
+        canvasScroll.getHorizontalScrollBar().setUnitIncrement(24);
         canvasScroll.setMinimumSize(new Dimension(340, 160));
-        canvasScroll.getViewport().setScrollMode(JViewport.SIMPLE_SCROLL_MODE);
-        canvasScroll.getViewport().addChangeListener(e -> canvasPanel.repaint());
+        canvasScroll.getViewport().setScrollMode(JViewport.BLIT_SCROLL_MODE);
+
+        // Smooth Ctrl/Cmd + Mouse Wheel Zoom
+        canvasScroll.addMouseWheelListener(e -> {
+            if (e.isControlDown() || e.isMetaDown()) {
+                e.consume();
+                int rotation = e.getWheelRotation();
+                if (zoomSlider != null) {
+                    int step = 5;
+                    int newVal = Math.max(50, Math.min(200, zoomSlider.getValue() - rotation * step));
+                    zoomSlider.setValue(newVal);
+                }
+            }
+        });
 
         centerCardLayout = new CardLayout();
         centerContainer = new JPanel(centerCardLayout);
@@ -206,13 +220,15 @@ public class WordBookMainFrame extends JFrame implements RibbonPanel.DocumentAct
 
         // Right split: center container (canvas or empty state) | Right Deck
         rightSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, centerContainer, rightDeckPanel);
+        rightSplit.setContinuousLayout(true);
         rightSplit.setResizeWeight(1.0);
         rightSplit.setDividerSize(0);
         rightSplit.setBorder(null);
 
         // Left split: lessons sidebar | right split
         sidebarPanel.setMinimumSize(new Dimension(190, 160));
-        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidebarPanel, rightSplit);
+        splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidebarPanel, rightSplit);
+        splitPane.setContinuousLayout(true);
         splitPane.setDividerLocation(250);
         splitPane.setResizeWeight(0.0);
         splitPane.setDividerSize(5);
@@ -1576,5 +1592,21 @@ public class WordBookMainFrame extends JFrame implements RibbonPanel.DocumentAct
     @Override
     public void deleteSelectedCardShape() {
         canvasPanel.deleteSelectedCardShape();
+    }
+
+    public JScrollPane getCanvasScroll() {
+        return canvasScroll;
+    }
+
+    public JSplitPane getSplitPane() {
+        return splitPane;
+    }
+
+    public JSplitPane getRightSplit() {
+        return rightSplit;
+    }
+
+    public JSlider getZoomSlider() {
+        return zoomSlider;
     }
 }

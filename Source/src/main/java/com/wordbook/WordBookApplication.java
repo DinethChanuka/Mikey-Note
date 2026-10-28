@@ -65,8 +65,10 @@ public class WordBookApplication {
 
         printBanner(port, dbPath);
 
-        System.setProperty("awt.useSystemAAFontSettings", "on");
+        System.setProperty("awt.useSystemAAFontSettings", "lcd");
         System.setProperty("swing.aatext", "true");
+        System.setProperty("apple.laf.useScreenMenuBar", "true");
+        System.setProperty("apple.awt.application.appearance", "system");
 
         // 1. If running with GUI, display Mikey Note Dedicated Startup Loading JFrame
         com.wordbook.infrastructure.ui.swing.NoteDownLoadingFrame loadingFrame = null;

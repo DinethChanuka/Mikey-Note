@@ -407,9 +407,55 @@ public class BookshelfPanel extends JPanel implements ThemeManager.ThemeChangeLi
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
     }
 
+    public JPanel getShelfGrid() {
+        return shelfGrid;
+    }
+
     private static class ResponsiveShelfPanel extends JPanel implements Scrollable {
         public ResponsiveShelfPanel(LayoutManager layout) {
             super(layout);
+        }
+
+        @Override
+        public Dimension getPreferredSize() {
+            int targetWidth = getWidth();
+            if (targetWidth <= 0 && getParent() instanceof JViewport vp) {
+                targetWidth = vp.getWidth();
+            }
+            if (targetWidth <= 0) {
+                return super.getPreferredSize();
+            }
+
+            Insets insets = getInsets();
+            int hgap = 24;
+            int vgap = 24;
+            LayoutManager lm = getLayout();
+            if (lm instanceof FlowLayout fl) {
+                hgap = fl.getHgap();
+                vgap = fl.getVgap();
+            }
+
+            int maxWidth = targetWidth - insets.left - insets.right;
+            if (maxWidth <= 0) maxWidth = 100;
+
+            int x = 0;
+            int y = insets.top;
+            int rowHeight = 0;
+
+            for (Component comp : getComponents()) {
+                if (!comp.isVisible()) continue;
+                Dimension d = comp.getPreferredSize();
+                if (x > 0 && x + d.width > maxWidth) {
+                    y += rowHeight + vgap;
+                    x = 0;
+                    rowHeight = 0;
+                }
+                x += d.width + hgap;
+                rowHeight = Math.max(rowHeight, d.height);
+            }
+            y += rowHeight + insets.bottom;
+
+            return new Dimension(targetWidth, Math.max(200, y));
         }
 
         @Override

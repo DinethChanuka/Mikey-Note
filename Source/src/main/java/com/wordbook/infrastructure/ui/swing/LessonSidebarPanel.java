@@ -31,6 +31,7 @@ public class LessonSidebarPanel extends JPanel {
     private String currentBookId;
     private String activeLessonId;
     private String renamingLessonId = null;
+    private List<LessonDto> cachedLessons = List.of();
     private JLabel bookTitleLabel;
     private JTextField filterField;
     private JPanel lessonsListPanel;
@@ -168,9 +169,9 @@ public class LessonSidebarPanel extends JPanel {
         ));
 
         filterField.getDocument().addDocumentListener(new DocumentListener() {
-            @Override public void insertUpdate(DocumentEvent e) { refreshLessons(); }
-            @Override public void removeUpdate(DocumentEvent e) { refreshLessons(); }
-            @Override public void changedUpdate(DocumentEvent e) { refreshLessons(); }
+            @Override public void insertUpdate(DocumentEvent e) { applyFilter(); }
+            @Override public void removeUpdate(DocumentEvent e) { applyFilter(); }
+            @Override public void changedUpdate(DocumentEvent e) { applyFilter(); }
         });
         searchContainer.add(filterField, BorderLayout.CENTER);
 
@@ -210,15 +211,21 @@ public class LessonSidebarPanel extends JPanel {
 
     public void refreshLessons() {
         if (currentBookId == null) return;
+        try {
+            BookWithLessonsDto bookData = bookService.getBookWithLessons(currentBookId);
+            bookTitleLabel.setText(bookData.title());
+            this.cachedLessons = bookData.lessons();
+        } catch (Exception ignored) {}
+        applyFilter();
+    }
+
+    private void applyFilter() {
+        if (currentBookId == null) return;
         lessonsListPanel.removeAll();
 
-        BookWithLessonsDto bookData = bookService.getBookWithLessons(currentBookId);
-        bookTitleLabel.setText(bookData.title());
-
         String query = filterField != null ? filterField.getText().trim().toLowerCase() : "";
-        List<LessonDto> lessons = bookData.lessons();
 
-        for (LessonDto l : lessons) {
+        for (LessonDto l : cachedLessons) {
             if (!query.isEmpty() && !l.title().toLowerCase().contains(query)) {
                 continue;
             }
@@ -320,6 +327,7 @@ public class LessonSidebarPanel extends JPanel {
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
                 int w = getWidth();
                 int h = getHeight();
@@ -367,6 +375,7 @@ public class LessonSidebarPanel extends JPanel {
         JLabel titleLbl = new JLabel(lesson.title());
         titleLbl.setFont(new Font("Segoe UI", isSelected ? Font.BOLD : Font.PLAIN, 13));
         titleLbl.setForeground(isSelected ? theme.accent() : theme.textPrimary());
+        titleLbl.setToolTipText(lesson.title());
 
         // Live Word / Char count badge
         int words = lesson.wordCount();

@@ -508,13 +508,17 @@ public class DocumentCanvasPanel extends JPanel implements ThemeManager.ThemeCha
         textPane = new JTextPane() {
             @Override
             public void paint(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
                 super.paint(g);
                 paintMediaOverlay(g);
                 if (isHeaderFooterSelected) {
-                    Graphics2D g2 = (Graphics2D) g.create();
-                    g2.setColor(new Color(255, 255, 255, 140));
-                    g2.fillRect(0, 0, getWidth(), getHeight());
-                    g2.dispose();
+                    Graphics2D gDim = (Graphics2D) g.create();
+                    gDim.setColor(new Color(255, 255, 255, 140));
+                    gDim.fillRect(0, 0, getWidth(), getHeight());
+                    gDim.dispose();
                 }
             }
 
@@ -2936,9 +2940,21 @@ public class DocumentCanvasPanel extends JPanel implements ThemeManager.ThemeCha
         return getPlainText().length();
     }
 
-    private static int countWords(String s) {
-        if (s == null || s.trim().isEmpty()) return 0;
-        return s.trim().split("\\s+").length;
+    public static int countWords(String s) {
+        if (s == null) return 0;
+        int count = 0;
+        boolean inWord = false;
+        int len = s.length();
+        for (int i = 0; i < len; i++) {
+            char c = s.charAt(i);
+            if (Character.isWhitespace(c)) {
+                inWord = false;
+            } else if (!inWord) {
+                inWord = true;
+                count++;
+            }
+        }
+        return count;
     }
 
     public void insertText(String text) {
@@ -4925,10 +4941,6 @@ public class DocumentCanvasPanel extends JPanel implements ThemeManager.ThemeCha
         if (suppressEvents) return;
         pageLayoutTimer.restart();
         autoSaveTimer.restart();
-        SwingUtilities.invokeLater(() -> {
-            if (textPane != null) textPane.repaint();
-            if (pageSheet != null) pageSheet.repaint();
-        });
     }
 
     // --- Scrollable Implementation for Centered Paper Canvas in JScrollPane ---
@@ -5007,10 +5019,7 @@ public class DocumentCanvasPanel extends JPanel implements ThemeManager.ThemeCha
             }
             lastOffsets = offsets.clone();
             if (anyOffsetChanged) {
-                SwingUtilities.invokeLater(() -> {
-                    if (textPane != null) textPane.repaint();
-                    if (pageSheet != null) pageSheet.repaint();
-                });
+                pageLayoutTimer.restart();
             }
         }
 

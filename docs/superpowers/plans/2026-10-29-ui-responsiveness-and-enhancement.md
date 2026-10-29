@@ -37,17 +37,17 @@
 - Consumes: `DocumentCanvasPanel.countWords(String)`, `DocumentCanvasPanel.onDocChange()`
 - Produces: Fast $O(N)$ zero-allocation word count; subpixel text antialiasing hints; decoupled key typing from full page sheet drop-shadow repainting.
 
-- [ ] **Step 1: Write test for word count performance and accuracy in `WordBookTestSuite.java`**
+- [x] **Step 1: Write test for word count performance and accuracy in `WordBookTestSuite.java`**
   Add unit tests validating `countWords` handles whitespace, empty strings, multiple spaces, tabs, and newlines accurately and without memory bloat.
-- [ ] **Step 2: Run test suite to verify test setup**
+- [x] **Step 2: Run test suite to verify test setup**
   Run: `./test.sh`
-- [ ] **Step 3: Implement $O(N)$ zero-allocation word counter and debounced change handler in `DocumentCanvasPanel.java`**
+- [x] **Step 3: Implement $O(N)$ zero-allocation word counter and debounced change handler in `DocumentCanvasPanel.java`**
   - Replace `s.trim().split("\\s+").length` with loop-based counter.
   - In `onDocChange()`, remove immediate `pageSheet.repaint()` calls on every keystroke, letting `pageLayoutTimer` (150ms) handle page height adjustments.
   - In `textPane`, set `KEY_TEXT_ANTIALIASING`, `KEY_ANTIALIASING`, and `KEY_FRACTIONALMETRICS` before rendering.
-- [ ] **Step 4: Run test suite to verify passes**
+- [x] **Step 4: Run test suite to verify passes**
   Run: `./test.sh`
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ---
 
@@ -62,17 +62,17 @@
 - Consumes: `canvasScroll.getViewport()`, `canvasPanel.setZoom(double)`
 - Produces: Hardware blitting for canvas scroll; mouse wheel zooming handler; continuous layout on split panes.
 
-- [ ] **Step 1: Write test for mouse wheel zoom clamping and continuous split layout**
-- [ ] **Step 2: Run test to verify fail/pass**
-- [ ] **Step 3: Update `WordBookMainFrame.java` and `DocumentCanvasPanel.java`**
+- [x] **Step 1: Write test for mouse wheel zoom clamping and continuous split layout**
+- [x] **Step 2: Run test to verify fail/pass**
+- [x] **Step 3: Update `WordBookMainFrame.java` and `DocumentCanvasPanel.java`**
   - Switch `canvasScroll.getViewport().setScrollMode` to `JViewport.BLIT_SCROLL_MODE`.
   - Remove redundant `canvasScroll.getViewport().addChangeListener(e -> canvasPanel.repaint())`.
   - Enable `setContinuousLayout(true)` on `splitPane` and `rightSplit`.
   - Add `MouseWheelListener` on `canvasScroll` to zoom in/out with Ctrl/Cmd + wheel.
   - Optimize `setZoom` to replace or update body font size cleanly without runaway stylesheet accumulation.
-- [ ] **Step 4: Run test suite to verify passes**
+- [x] **Step 4: Run test suite to verify passes**
   Run: `./test.sh`
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ---
 
@@ -86,17 +86,32 @@
 - Consumes: `ResponsiveShelfPanel.getPreferredSize()`
 - Produces: Dynamically calculated preferred height based on actual container width and component wrapping.
 
-- [ ] **Step 1: Write test for `ResponsiveShelfPanel` height calculation when wrapping across multiple rows**
-- [ ] **Step 2: Run test to verify failure before fix**
-- [ ] **Step 3: Implement dynamic row-wrapping height in `ResponsiveShelfPanel`**
+- [x] **Step 1: Write test for `ResponsiveShelfPanel` height calculation when wrapping across multiple rows**
+- [x] **Step 2: Run test to verify failure before fix**
+- [x] **Step 3: Implement dynamic row-wrapping height in `ResponsiveShelfPanel`**
   Calculate rows based on `parent.getWidth()` or component width, card dimensions, and insets/gaps.
-- [ ] **Step 4: Run test suite to verify passes**
+- [x] **Step 4: Run test suite to verify passes**
   Run: `./test.sh`
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ---
 
 ### Task 4: UI Polish & Enhancements for Sidebar, Dialogs, and Text Controls
+
+- [x] **Step 1: In-memory lesson caching in `LessonSidebarPanel.java`**
+- [x] **Step 2: Antialiased text rendering on dialogs and custom combo boxes**
+- [x] **Step 3: Full test suite verification**
+
+---
+
+### Task 5: Memory Leak, Color Contrast & Adaptive Width Bug Fixes
+
+- [x] **Step 1: Prevent stylesheet rule accumulation in `DocumentCanvasPanel.setZoom()` by swapping child StyleSheet**
+- [x] **Step 2: Synchronize HTML text colors in `toggleHighContrastMode()`**
+- [x] **Step 3: Preserve dyslexic font settings across document reloads in `loadHtml()`**
+- [x] **Step 4: Make `RibbonPanel` cards container width responsive (no hardcoded 1200px limit)**
+- [x] **Step 5: Add regression tests for all 3 edge cases in `WordBookTestSuite.java` (35/35 passing)**
+- [x] **Step 6: Commit and push branch to `origin`**
 
 **Files:**
 - Modify: `Source/src/main/java/com/wordbook/infrastructure/ui/swing/LessonSidebarPanel.java`

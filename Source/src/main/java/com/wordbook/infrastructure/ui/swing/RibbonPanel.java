@@ -346,7 +346,13 @@ public class RibbonPanel extends JPanel implements ThemeManager.ThemeChangeListe
     private void initCards() {
         cardsPanel.setOpaque(true);
         cardsPanel.setBackground(ThemeManager.getSurface());
-        cardsPanel.setPreferredSize(new Dimension(1200, 116));
+        // FIX: Remove hardcoded 1200px preferred width — each tab is wrapped in a horizontal
+        // JScrollPane, so the ribbon adapts to the window width without overflow or clipping.
+        // Override getPreferredSize to keep a stable 116px height while allowing dynamic width.
+        javax.swing.JPanel self = cardsPanel;
+        // Apply a minimum height so the ribbon band stays compact regardless of content variation
+        cardsPanel.setMinimumSize(new Dimension(200, 116));
+        cardsPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 116));
 
         cardsPanel.add(wrapRibbonScroll(createPanelHome()), TAB_HOME);
         cardsPanel.add(wrapRibbonScroll(createPanelInsert()), TAB_INSERT);

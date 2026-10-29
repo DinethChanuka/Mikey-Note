@@ -108,6 +108,8 @@ public class DocumentCanvasPanel extends JPanel implements ThemeManager.ThemeCha
     private final Timer autoSaveTimer;
     private final Timer pageLayoutTimer;
     private volatile int cachedPageCount = 1;
+    /** Dedicated child StyleSheet for zoom-only rules — replaced wholesale on each zoom to prevent rule accumulation. */
+    private javax.swing.text.html.StyleSheet zoomStyleSheet = new javax.swing.text.html.StyleSheet();
     private final DocumentListener docListener = new DocumentListener() {
         @Override public void insertUpdate(DocumentEvent e) { onDocChange(); }
         @Override public void removeUpdate(DocumentEvent e) { onDocChange(); }
@@ -2904,6 +2906,8 @@ public class DocumentCanvasPanel extends JPanel implements ThemeManager.ThemeCha
         } finally {
             suppressEvents = false;
         }
+        // Reapply dyslexic font mode if active — loadHtml() replaces all text attributes
+        applyDyslexicFontIfActive();
         updateDynamicPageHeight();
     }
 
@@ -3442,17 +3446,25 @@ public class DocumentCanvasPanel extends JPanel implements ThemeManager.ThemeCha
         this.zoomFactor = factor;
         // Keep page paper sheet strictly fixed to currentPageFormat.width.
         // Scale typography comfortably so tables and cards fit within paper printable boundaries.
+        // FIX: Replace the dedicated zoom StyleSheet wholesale instead of accumulating addRule() calls
+        // on the main stylesheet, which would grow unboundedly and cause a memory/performance leak.
         try {
             int bodyPt = Math.max(9, Math.min(18, (int) Math.round(13 * factor)));
             int h1Px = Math.max(16, Math.min(30, (int) Math.round(24 * factor)));
             int h2Px = Math.max(13, Math.min(24, (int) Math.round(18 * factor)));
             int h3Px = Math.max(11, Math.min(18, (int) Math.round(15 * factor)));
-            StyleSheet css = editorKit.getStyleSheet();
-            css.addRule("body { font-size: " + bodyPt + "pt; }");
-            css.addRule("th, td { font-size: " + bodyPt + "pt; }");
-            css.addRule("h1 { font-size: " + h1Px + "px; }");
-            css.addRule("h2 { font-size: " + h2Px + "px; }");
-            css.addRule("h3 { font-size: " + h3Px + "px; }");
+
+            // Remove old zoom sheet and replace with a fresh one
+            StyleSheet parent = editorKit.getStyleSheet();
+            parent.removeStyleSheet(zoomStyleSheet);
+            zoomStyleSheet = new javax.swing.text.html.StyleSheet();
+            zoomStyleSheet.addRule("body { font-size: " + bodyPt + "pt; }");
+            zoomStyleSheet.addRule("p { font-size: " + bodyPt + "pt; }");
+            zoomStyleSheet.addRule("th, td { font-size: " + bodyPt + "pt; }");
+            zoomStyleSheet.addRule("h1 { font-size: " + h1Px + "px; }");
+            zoomStyleSheet.addRule("h2 { font-size: " + h2Px + "px; }");
+            zoomStyleSheet.addRule("h3 { font-size: " + h3Px + "px; }");
+            parent.addStyleSheet(zoomStyleSheet);
         } catch (Exception ignored) {}
         updateDynamicPageHeight();
         revalidate();
@@ -4766,11 +4778,17 @@ public class DocumentCanvasPanel extends JPanel implements ThemeManager.ThemeCha
             textPane.setBackground(new Color(15, 23, 42));
             textPane.setForeground(new Color(254, 240, 138));
             textPane.setCaretColor(new Color(254, 240, 138));
+            // Sync CSS body color so rendered HTML text matches the contrast theme
+            editorKit.getStyleSheet().addRule("body { color: #fef08a; background-color: #0f172a; }");
+            editorKit.getStyleSheet().addRule("p { color: #fef08a; }");
         } else {
             currentPaperTone = Color.WHITE;
             textPane.setBackground(Color.WHITE);
             textPane.setForeground(new Color(30, 41, 59));
             textPane.setCaretColor(new Color(30, 41, 59));
+            // Restore default CSS colors
+            editorKit.getStyleSheet().addRule("body { color: #1e293b; background-color: #ffffff; }");
+            editorKit.getStyleSheet().addRule("p { color: #1e293b; }");
         }
         pageSheet.repaint();
         textPane.repaint();
@@ -4778,19 +4796,19 @@ public class DocumentCanvasPanel extends JPanel implements ThemeManager.ThemeCha
 
     public void toggleDyslexicFont() {
         dyslexicFontMode = !dyslexicFontMode;
+        applyDyslexicFontIfActive();
+        triggerSave();
+    }
+
+    /** Apply dyslexic font to the full document text, called after loadHtml() and on toggle. */
+    private void applyDyslexicFontIfActive() {
+        if (!dyslexicFontMode) return;
         SimpleAttributeSet sa = new SimpleAttributeSet();
-        if (dyslexicFontMode) {
-            StyleConstants.setFontFamily(sa, "Verdana");
-            StyleConstants.setFontSize(sa, 16);
-            StyleConstants.setLineSpacing(sa, 0.4f);
-        } else {
-            StyleConstants.setFontFamily(sa, "Calibri");
-            StyleConstants.setFontSize(sa, 14);
-            StyleConstants.setLineSpacing(sa, 0.0f);
-        }
+        StyleConstants.setFontFamily(sa, "Verdana");
+        StyleConstants.setFontSize(sa, 16);
+        StyleConstants.setLineSpacing(sa, 0.4f);
         textPane.setCharacterAttributes(sa, false);
         textPane.setParagraphAttributes(sa, false);
-        triggerSave();
     }
 
     public void showHeadingsNavigator() {
